@@ -142,6 +142,12 @@ function showAdminLogin() {
 
 <body>
 
+  <div
+  id="authScreen"
+  class="screen auth-screen hidden"
+  aria-hidden="true"
+></div>
+
   <div class="grain"></div>
   <div class="vignette"></div>
 
@@ -179,7 +185,7 @@ function showAdminLogin() {
           class="site-brand">
 
           <span class="brand-seal">
-            QA
+            Mm
           </span>
 
           <span>
@@ -219,8 +225,7 @@ function showAdminLogin() {
           <button
   id="adminLoginButton"
   type="button"
-  onclick="showAdminLogin()"
-  style="cursor:pointer;"
+  onclick="window.showAdminLogin()"
 >
   ADMIN LOGIN
 </button>
