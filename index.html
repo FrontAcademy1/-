@@ -16,7 +16,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=IM+Fell+English:ital@0;1&family=UnifrakturCook:wght@700&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=IM+Fell+English:ital@0;1&family=UnifrakturCook:wght@700&display=swap"
+    rel="stylesheet">
 
   <link rel="stylesheet" href="style.css">
 </head>
@@ -31,18 +33,19 @@
 
 
   <!-- =====================================================
-       AUTH SCREEN
-       الطالب لا يحتاج تسجيل دخول
+       ADMIN LOGIN SCREEN
+       مخفية افتراضيًا — الطالب لا يحتاج تسجيل دخول
        ===================================================== -->
 
-  <div id="authScreen"
-       class="screen auth-screen hidden"
-       aria-hidden="true">
+  <div
+    id="authScreen"
+    class="screen auth-screen hidden"
+    aria-hidden="true">
   </div>
 
 
   <!-- =====================================================
-       APP
+       MAIN APP
        ===================================================== -->
 
   <div id="appShell" class="app-shell">
@@ -62,11 +65,18 @@
 
         <a class="site-brand" href="#home">
 
-          <span class="brand-seal">QA</span>
+          <span class="brand-seal">
+            QA
+          </span>
 
           <span>
-            <strong>QUESTION ARCHIVE</strong>
-            <small>CAIRO JAPANESE</small>
+            <strong>
+              QUESTION ARCHIVE
+            </strong>
+
+            <small>
+              CAIRO JAPANESE
+            </small>
           </span>
 
         </a>
@@ -77,12 +87,25 @@
           class="main-nav"
           aria-label="التنقل الرئيسي">
 
-          <a href="#home">ARCHIVE</a>
-          <a href="#chapters">CHAPTERS</a>
-          <a href="#search">SEARCH</a>
-          <a href="#contact">CONTACT</a>
+          <a href="#home">
+            ARCHIVE
+          </a>
 
-          <!-- يظهر للـAdmin فقط -->
+          <a href="#chapters">
+            CHAPTERS
+          </a>
+
+          <a href="#search">
+            SEARCH
+          </a>
+
+          <a href="#contact">
+            CONTACT
+          </a>
+
+
+          <!-- يظهر بعد دخول الأدمن -->
+
           <button
             id="adminNavButton"
             class="nav-admin hidden"
@@ -101,12 +124,17 @@
             STUDENT
           </span>
 
-          <!-- يظهر فقط عندما يكون Admin مسجلًا -->
+
+          <!--
+            بدل LOG OUT
+            أصبح ADMIN LOGIN
+          -->
+
           <button
-            id="logoutButton"
-            class="text-button hidden"
+            id="adminLoginButton"
+            class="text-button"
             type="button">
-            LOG OUT
+            ADMIN LOGIN
           </button>
 
         </div>
@@ -116,20 +144,29 @@
     </header>
 
 
+    <!-- ===================================================
+         MAIN
+         =================================================== -->
+
     <main>
+
 
       <!-- =================================================
            HOME
            ================================================= -->
 
-      <section id="home" class="hero-section">
+      <section
+        id="home"
+        class="hero-section">
 
         <div
           class="paper-scrap"
           aria-hidden="true">
         </div>
 
+
         <div class="container hero-inner">
+
 
           <div class="hero-copy reveal">
 
@@ -137,33 +174,47 @@
               VOLUME I • EDUCATIONAL ARCHIVE
             </p>
 
+
             <h2>
               WELCOME TO<br>
-              <span>THE ARCHIVE</span>
+              <span>
+                THE ARCHIVE
+              </span>
             </h2>
+
 
             <p class="hero-lead">
               CAIRO JAPANESE<br>
               EDUCATIONAL QUESTIONS
             </p>
 
+
             <p class="hero-description">
               راجع الأسئلة، اقرأ الشروحات، واحفظ أهم النقاط في تجربة تعليمية هادئة مستوحاة من أرشيفات الورق القديمة.
             </p>
+
 
             <div class="hero-actions">
 
               <a
                 class="archive-button primary"
                 href="#chapters">
+
                 OPEN CHAPTERS
-                <span class="button-mark">→</span>
+
+                <span class="button-mark">
+                  →
+                </span>
+
               </a>
+
 
               <a
                 class="archive-button secondary"
                 href="#search">
+
                 SEARCH ARCHIVE
+
               </a>
 
             </div>
@@ -178,9 +229,11 @@
               ARCHIVE
             </div>
 
+
             <span class="cover-small">
               CAIRO JAPANESE
             </span>
+
 
             <h3>
               THE<br>
@@ -188,12 +241,15 @@
               ARCHIVE
             </h3>
 
+
             <div class="cover-rule"></div>
+
 
             <p>
               AN INDEPENDENT<br>
               STUDY RESOURCE
             </p>
+
 
             <span class="cover-number">
               NO. 001
@@ -210,7 +266,9 @@
            CHAPTERS
            ================================================= -->
 
-      <section id="chapters" class="section">
+      <section
+        id="chapters"
+        class="section">
 
         <div class="container">
 
@@ -220,9 +278,11 @@
               01 / CHAPTERS
             </span>
 
+
             <h2>
               فصول الأرشيف
             </h2>
+
 
             <p>
               اختر الفصل للوصول إلى الأسئلة المرتبطة به.
@@ -245,9 +305,11 @@
               —
             </div>
 
+
             <h3>
               لا توجد Chapters حتى الآن
             </h3>
+
 
             <p>
               سيظهر المحتوى هنا عندما تضيف الإدارة أول Chapter من لوحة التحكم.
@@ -276,9 +338,11 @@
               ARCHIVE / QUESTIONS
             </span>
 
+
             <h2 id="selectedChapterTitle">
               Chapter
             </h2>
+
 
             <p id="selectedChapterDescription"></p>
 
@@ -299,9 +363,11 @@
               —
             </div>
 
+
             <h3>
               لا توجد أسئلة في هذا الفصل
             </h3>
+
 
             <p>
               ستظهر الأسئلة هنا بعد أن تضيفها الإدارة من لوحة التحكم.
@@ -324,15 +390,18 @@
 
         <div class="container">
 
+
           <div class="section-heading compact reveal">
 
             <span class="section-label">
               02 / SEARCH
             </span>
 
+
             <h2>
               ابحث داخل الأرشيف
             </h2>
+
 
             <p>
               ابحث باسم الفصل، عنوان السؤال، نص السؤال، أو التصنيف.
@@ -343,17 +412,20 @@
 
           <div class="search-panel reveal">
 
+
             <div class="search-main">
 
               <label for="searchInput">
                 SEARCH QUESTIONS
               </label>
 
+
               <div class="search-input-wrap">
 
                 <span aria-hidden="true">
                   ⌕
                 </span>
+
 
                 <input
                   id="searchInput"
@@ -371,6 +443,7 @@
               <label for="categoryFilter">
                 CATEGORY
               </label>
+
 
               <select id="categoryFilter">
 
@@ -399,9 +472,11 @@
               ?
             </div>
 
+
             <h3>
               لا توجد نتائج
             </h3>
+
 
             <p>
               جرّب كلمة أخرى أو اختر تصنيفًا مختلفًا.
@@ -430,13 +505,16 @@
               03 / CONTACT
             </span>
 
+
             <h2>
               هل واجهت مشكلة؟
             </h2>
 
+
             <p>
               تواصل مع الإدارة عبر WhatsApp إذا واجهتك مشكلة في سؤال أو احتجت إلى مساعدة.
             </p>
+
 
             <button
               id="generalWhatsApp"
@@ -450,6 +528,7 @@
               </span>
 
             </button>
+
 
             <small id="contactNumberLabel"></small>
 
@@ -476,11 +555,13 @@
             QUESTION ARCHIVE
           </strong>
 
+
           <p>
             منصة تعليمية مستقلة لمساعدة الطلاب على المراجعة.
           </p>
 
         </div>
+
 
         <span id="footerYear"></span>
 
@@ -502,6 +583,7 @@
 
     <div class="admin-shell">
 
+
       <header class="admin-header">
 
         <div>
@@ -510,11 +592,13 @@
             CONTROL ROOM
           </span>
 
+
           <h2>
             ADMIN DASHBOARD
           </h2>
 
         </div>
+
 
         <button
           id="closeAdmin"
@@ -529,12 +613,14 @@
 
       <div class="admin-tabs">
 
+
         <button
           class="admin-tab active"
           data-admin-tab="overview"
           type="button">
           OVERVIEW
         </button>
+
 
         <button
           class="admin-tab"
@@ -543,6 +629,7 @@
           CHAPTERS
         </button>
 
+
         <button
           class="admin-tab"
           data-admin-tab="questions"
@@ -550,12 +637,14 @@
           QUESTIONS
         </button>
 
+
         <button
           class="admin-tab"
           data-admin-tab="categories"
           type="button">
           CATEGORIES
         </button>
+
 
         <button
           class="admin-tab"
@@ -569,6 +658,7 @@
 
       <div class="admin-content">
 
+
         <!-- OVERVIEW -->
 
         <section
@@ -577,19 +667,43 @@
 
           <div class="stats-grid">
 
-            <div class="stat-card">
-              <span>CHAPTERS</span>
-              <strong id="statChapters">0</strong>
-            </div>
 
             <div class="stat-card">
-              <span>QUESTIONS</span>
-              <strong id="statQuestions">0</strong>
+
+              <span>
+                CHAPTERS
+              </span>
+
+              <strong id="statChapters">
+                0
+              </strong>
+
             </div>
 
+
             <div class="stat-card">
-              <span>CATEGORIES</span>
-              <strong id="statCategories">0</strong>
+
+              <span>
+                QUESTIONS
+              </span>
+
+              <strong id="statQuestions">
+                0
+              </strong>
+
+            </div>
+
+
+            <div class="stat-card">
+
+              <span>
+                CATEGORIES
+              </span>
+
+              <strong id="statCategories">
+                0
+              </strong>
+
             </div>
 
           </div>
@@ -600,6 +714,7 @@
             <span class="note-mark">
               ARCHIVE NOTE
             </span>
+
 
             <p>
               هذه اللوحة هي المكان الوحيد لإضافة وتعديل المحتوى. لا توجد أسئلة ثابتة داخل JavaScript.
@@ -624,11 +739,13 @@
                 CONTENT STRUCTURE
               </span>
 
+
               <h3>
                 MANAGE CHAPTERS
               </h3>
 
             </div>
+
 
             <button
               id="addChapterButton"
@@ -638,6 +755,7 @@
             </button>
 
           </div>
+
 
           <div
             id="adminChaptersList"
@@ -661,11 +779,13 @@
                 QUESTION ARCHIVE
               </span>
 
+
               <h3>
                 MANAGE QUESTIONS
               </h3>
 
             </div>
+
 
             <button
               id="addQuestionButton"
@@ -675,6 +795,7 @@
             </button>
 
           </div>
+
 
           <div
             id="adminQuestionsList"
@@ -698,11 +819,13 @@
                 CLASSIFICATION
               </span>
 
+
               <h3>
                 MANAGE CATEGORIES
               </h3>
 
             </div>
+
 
             <button
               id="addCategoryButton"
@@ -712,6 +835,7 @@
             </button>
 
           </div>
+
 
           <div
             id="adminCategoriesList"
@@ -735,6 +859,7 @@
                 SITE SETTINGS
               </span>
 
+
               <h3>
                 CONTACT SETTINGS
               </h3>
@@ -748,9 +873,11 @@
             id="contactSettingsForm"
             class="admin-form">
 
+
             <label for="whatsappNumber">
               WHATSAPP NUMBER
             </label>
+
 
             <input
               id="whatsappNumber"
@@ -761,6 +888,7 @@
             <label for="whatsappTemplate">
               DEFAULT MESSAGE
             </label>
+
 
             <textarea
               id="whatsappTemplate"
@@ -796,6 +924,7 @@
 
     <div class="modal-card">
 
+
       <div class="modal-header">
 
         <div>
@@ -806,11 +935,13 @@
             EDITOR
           </span>
 
+
           <h3 id="editorTitle">
             ADD ITEM
           </h3>
 
         </div>
+
 
         <button
           id="closeEditor"
@@ -846,10 +977,11 @@
 
 
   <!-- =====================================================
-       SCRIPTS
+       SUPABASE
        ===================================================== -->
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <script src="app.js"></script>
 
 </body>
