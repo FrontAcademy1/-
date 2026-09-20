@@ -68,7 +68,7 @@ const passwordInput = $("#password");
 const togglePassword = $("#togglePassword");
 const authStatus = $("#authStatus");
 
-const mobileMenuButton = $("#mobileMenuButton");
+const adminLoginButton = $("#adminLoginButton");
 const mainNav = $("#mainNav");
 
 const adminNavButton = $("#adminNavButton");
