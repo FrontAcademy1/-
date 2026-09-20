@@ -1,11 +1,12 @@
 /* =========================================================
-   QUESTION ARCHIVE
-   STUDENT DIRECT ACCESS + ADMIN LOGIN
+   QUESTION ARCHIVE — COMPLETE APP.JS
+   Student enters directly
+   Admin login only
    ========================================================= */
 
 
 /* =========================================================
-   SUPABASE
+   SUPABASE CONFIG
    ========================================================= */
 
 const SUPABASE_URL =
@@ -15,16 +16,11 @@ const SUPABASE_ANON_KEY =
   "sb_publishable_8LtNCb9mSVJutvGk7mBJRA_nfG3gd4f";
 
 
-const TABLES = {
-  profiles: "profiles",
-  chapters: "chapters",
-  questions: "questions",
-  categories: "categories",
-  settings: "site_settings"
-};
+/* =========================================================
+   GLOBAL STATE
+   ========================================================= */
 
-
-let supabase = null;
+let supabaseClient = null;
 
 let currentUser = null;
 let currentProfile = null;
@@ -34,351 +30,104 @@ let questions = [];
 let categories = [];
 let siteSettings = {};
 
-let selectedChapter = null;
-
-let editorType = null;
-let editingId = null;
+let selectedChapterId = null;
 
 
 /* =========================================================
-   HELPERS
+   DOM HELPER
    ========================================================= */
 
-const $ = (selector) =>
-  document.querySelector(selector);
+const $ = (id) => document.getElementById(id);
 
-const $$ = (selector) =>
-  Array.from(
-    document.querySelectorAll(selector)
+
+/* =========================================================
+   INIT
+   ========================================================= */
+
+document.addEventListener("DOMContentLoaded", async () => {
+  try {
+    initializeSupabase();
+    initializeUI();
+    bindEvents();
+
+    await loadPublicContent();
+    await checkExistingAdminSession();
+
+  } catch (error) {
+    console.error("BOOT ERROR:", error);
+    showToast("حدث خطأ أثناء تشغيل الموقع.");
+  }
+});
+
+
+/* =========================================================
+   SUPABASE
+   ========================================================= */
+
+function initializeSupabase() {
+
+  if (!window.supabase) {
+    console.error("Supabase library not loaded.");
+
+    showToast(
+      "Supabase لم يتم تحميله. تأكد من وجود مكتبة Supabase في index.html."
+    );
+
+    return;
+  }
+
+  supabaseClient = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY
   );
 
-
-/* =========================================================
-   DOM
-   ========================================================= */
-
-const authScreen =
-  $("#authScreen");
-
-const appShell =
-  $("#appShell");
-
-const adminLoginButton =
-  $("#adminLoginButton");
-
-const adminNavButton =
-  $("#adminNavButton");
-
-const userRoleBadge =
-  $("#userRoleBadge");
-
-const footerYear =
-  $("#footerYear");
-
-const chaptersGrid =
-  $("#chaptersGrid");
-
-const chaptersEmpty =
-  $("#chaptersEmpty");
-
-const questionsSection =
-  $("#questionsSection");
-
-const selectedChapterTitle =
-  $("#selectedChapterTitle");
-
-const selectedChapterDescription =
-  $("#selectedChapterDescription");
-
-const questionsList =
-  $("#questionsList");
-
-const questionsEmpty =
-  $("#questionsEmpty");
-
-const searchInput =
-  $("#searchInput");
-
-const categoryFilter =
-  $("#categoryFilter");
-
-const searchResults =
-  $("#searchResults");
-
-const searchEmpty =
-  $("#searchEmpty");
-
-const generalWhatsApp =
-  $("#generalWhatsApp");
-
-const contactNumberLabel =
-  $("#contactNumberLabel");
-
-const adminOverlay =
-  $("#adminOverlay");
-
-const closeAdmin =
-  $("#closeAdmin");
-
-const adminTabs =
-  $$(".admin-tab");
-
-const adminPanels =
-  $$(".admin-panel");
-
-const statChapters =
-  $("#statChapters");
-
-const statQuestions =
-  $("#statQuestions");
-
-const statCategories =
-  $("#statCategories");
-
-const adminChaptersList =
-  $("#adminChaptersList");
-
-const adminQuestionsList =
-  $("#adminQuestionsList");
-
-const adminCategoriesList =
-  $("#adminCategoriesList");
-
-const addChapterButton =
-  $("#addChapterButton");
-
-const addQuestionButton =
-  $("#addQuestionButton");
-
-const addCategoryButton =
-  $("#addCategoryButton");
-
-const contactSettingsForm =
-  $("#contactSettingsForm");
-
-const whatsappNumber =
-  $("#whatsappNumber");
-
-const whatsappTemplate =
-  $("#whatsappTemplate");
-
-const editorModal =
-  $("#editorModal");
-
-const editorTitle =
-  $("#editorTitle");
-
-const editorKicker =
-  $("#editorKicker");
-
-const editorForm =
-  $("#editorForm");
-
-const closeEditor =
-  $("#closeEditor");
-
-const toastRegion =
-  $("#toastRegion");
+  console.log("Supabase initialized.");
+}
 
 
 /* =========================================================
-   START
+   UI INITIALIZATION
    ========================================================= */
 
-document.addEventListener(
-  "DOMContentLoaded",
-  boot
-);
+function initializeUI() {
 
+  const appShell = $("appShell");
+  const authScreen = $("authScreen");
 
-async function boot() {
+  if (appShell) {
+    appShell.classList.remove("hidden");
+    appShell.style.display = "";
+  }
 
-  console.log(
-    "Question Archive starting..."
-  );
+  if (authScreen) {
+    authScreen.classList.add("hidden");
+    authScreen.style.display = "none";
+    authScreen.setAttribute("aria-hidden", "true");
+  }
 
+  const roleBadge = $("userRoleBadge");
+
+  if (roleBadge) {
+    roleBadge.textContent = "STUDENT";
+  }
+
+  const adminLoginButton = $("adminLoginButton");
+
+  if (adminLoginButton) {
+    adminLoginButton.style.display = "";
+  }
+
+  const adminNavButton = $("adminNavButton");
+
+  if (adminNavButton) {
+    adminNavButton.classList.add("hidden");
+  }
+
+  const footerYear = $("footerYear");
 
   if (footerYear) {
-
-    footerYear.textContent =
-      new Date().getFullYear();
-
+    footerYear.textContent = new Date().getFullYear();
   }
-
-
-  /*
-   * مهم جدًا:
-   * الموقع يبدأ كـ STUDENT
-   */
-
-  appShell.classList.remove(
-    "hidden"
-  );
-
-  authScreen.classList.add(
-    "hidden"
-  );
-
-  authScreen.setAttribute(
-    "aria-hidden",
-    "true"
-  );
-
-
-  userRoleBadge.textContent =
-    "STUDENT";
-
-
-  adminLoginButton.classList.remove(
-    "hidden"
-  );
-
-
-  adminNavButton.classList.add(
-    "hidden"
-  );
-
-
-  bindEvents();
-
-
-  /*
-   * إنشاء Supabase
-   */
-
-  if (
-    !window.supabase ||
-    !window.supabase.createClient
-  ) {
-
-    console.error(
-      "Supabase library not loaded."
-    );
-
-    showToast(
-      "تعذر تحميل Supabase.",
-      "error"
-    );
-
-    return;
-
-  }
-
-
-  try {
-
-    supabase =
-      window.supabase.createClient(
-        SUPABASE_URL,
-        SUPABASE_ANON_KEY
-      );
-
-  } catch (error) {
-
-    console.error(error);
-
-    showToast(
-      "تعذر الاتصال بـ Supabase.",
-      "error"
-    );
-
-    return;
-
-  }
-
-
-  /*
-   * تحميل المحتوى العام
-   */
-
-  await refreshPublicContent();
-
-
-  /*
-   * فحص جلسة Admin موجودة بالفعل
-   */
-
-  try {
-
-    const {
-      data
-    } =
-      await supabase.auth.getSession();
-
-
-    const session =
-      data?.session;
-
-
-    if (session?.user) {
-
-      await checkAdminSession(
-        session.user
-      );
-
-    }
-
-  } catch (error) {
-
-    console.error(
-      "Session error:",
-      error
-    );
-
-  }
-
-
-  /*
-   * مراقبة تسجيل الدخول
-   */
-
-  supabase.auth.onAuthStateChange(
-    async (
-      event,
-      session
-    ) => {
-
-      console.log(
-        "Auth event:",
-        event
-      );
-
-
-      if (
-        event === "SIGNED_IN" &&
-        session?.user
-      ) {
-
-        await checkAdminSession(
-          session.user
-        );
-
-      }
-
-
-      if (
-        event === "SIGNED_OUT"
-      ) {
-
-        currentUser = null;
-        currentProfile = null;
-
-        userRoleBadge.textContent =
-          "STUDENT";
-
-        adminLoginButton.classList.remove(
-          "hidden"
-        );
-
-        adminNavButton.classList.add(
-          "hidden"
-        );
-
-      }
-
-    }
-  );
-
 }
 
 
@@ -388,178 +137,122 @@ async function boot() {
 
 function bindEvents() {
 
+  const adminLoginButton = $("adminLoginButton");
 
-  /*
-   * Admin login
-   *
-   * عندنا أيضًا onclick داخل HTML
-   * كحماية إضافية.
-   */
-
-  adminLoginButton?.addEventListener(
-    "click",
-    showAdminLogin
-  );
+  if (adminLoginButton) {
+    adminLoginButton.onclick = function () {
+      showAdminLogin();
+    };
+  }
 
 
-  /*
-   * Admin dashboard
-   */
+  const adminNavButton = $("adminNavButton");
 
-  adminNavButton?.addEventListener(
-    "click",
-    openAdminDashboard
-  );
-
-
-  closeAdmin?.addEventListener(
-    "click",
-    closeAdminDashboard
-  );
+  if (adminNavButton) {
+    adminNavButton.onclick = function () {
+      openAdminDashboard();
+    };
+  }
 
 
-  /*
-   * Admin tabs
-   */
+  const closeAdmin = $("closeAdmin");
 
-  adminTabs.forEach(
-    (button) => {
-
-      button.addEventListener(
-        "click",
-        () => {
-
-          switchAdminTab(
-            button.dataset.adminTab
-          );
-
-        }
-      );
-
-    }
-  );
+  if (closeAdmin) {
+    closeAdmin.onclick = function () {
+      closeAdminDashboard();
+    };
+  }
 
 
-  /*
-   * Add
-   */
+  const closeEditor = $("closeEditor");
 
-  addChapterButton?.addEventListener(
-    "click",
-    () => {
-
-      openEditor(
-        "chapter"
-      );
-
-    }
-  );
+  if (closeEditor) {
+    closeEditor.onclick = function () {
+      closeEditorModal();
+    };
+  }
 
 
-  addQuestionButton?.addEventListener(
-    "click",
-    () => {
+  const editorForm = $("editorForm");
 
-      openEditor(
-        "question"
-      );
-
-    }
-  );
+  if (editorForm) {
+    editorForm.addEventListener(
+      "submit",
+      saveEditor
+    );
+  }
 
 
-  addCategoryButton?.addEventListener(
-    "click",
-    () => {
+  const searchInput = $("searchInput");
 
-      openEditor(
-        "category"
-      );
-
-    }
-  );
+  if (searchInput) {
+    searchInput.addEventListener(
+      "input",
+      renderSearchResults
+    );
+  }
 
 
-  /*
-   * Editor close
-   */
+  const categoryFilter = $("categoryFilter");
 
-  closeEditor?.addEventListener(
-    "click",
-    closeEditorModal
-  );
-
-
-  editorModal?.addEventListener(
-    "click",
-    (event) => {
-
-      if (
-        event.target ===
-        editorModal
-      ) {
-
-        closeEditorModal();
-
-      }
-
-    }
-  );
+  if (categoryFilter) {
+    categoryFilter.addEventListener(
+      "change",
+      renderSearchResults
+    );
+  }
 
 
-  /*
-   * Search
-   */
+  const addChapterButton = $("addChapterButton");
 
-  searchInput?.addEventListener(
-    "input",
-    renderSearchResults
-  );
-
-
-  categoryFilter?.addEventListener(
-    "change",
-    renderSearchResults
-  );
+  if (addChapterButton) {
+    addChapterButton.onclick = function () {
+      openEditor("chapter");
+    };
+  }
 
 
-  /*
-   * Contact
-   */
+  const addQuestionButton = $("addQuestionButton");
 
-  generalWhatsApp?.addEventListener(
-    "click",
-    openGeneralWhatsApp
-  );
-
-
-  contactSettingsForm?.addEventListener(
-    "submit",
-    saveContactSettings
-  );
+  if (addQuestionButton) {
+    addQuestionButton.onclick = function () {
+      openEditor("question");
+    };
+  }
 
 
-  /*
-   * ESC
-   */
+  const addCategoryButton = $("addCategoryButton");
+
+  if (addCategoryButton) {
+    addCategoryButton.onclick = function () {
+      openEditor("category");
+    };
+  }
+
+
+  const contactSettingsForm = $("contactSettingsForm");
+
+  if (contactSettingsForm) {
+    contactSettingsForm.addEventListener(
+      "submit",
+      saveContactSettings
+    );
+  }
+
 
   document.addEventListener(
     "keydown",
-    (event) => {
+    function (event) {
 
-      if (
-        event.key === "Escape"
-      ) {
+      if (event.key === "Escape") {
 
         closeAdminDashboard();
-
         closeEditorModal();
 
       }
 
     }
   );
-
 }
 
 
@@ -567,460 +260,141 @@ function bindEvents() {
    ADMIN LOGIN SCREEN
    ========================================================= */
 
-/*
- * مهم:
- * window.showAdminLogin
- * حتى يعمل onclick الموجود في HTML.
- */
+window.showAdminLogin = showAdminLogin;
 
-window.showAdminLogin =
-  function showAdminLogin() {
+function showAdminLogin() {
 
-    console.log(
-      "Opening admin login..."
+  const authScreen = $("authScreen");
+  const appShell = $("appShell");
+
+  if (!authScreen) {
+    alert(
+      "ERROR: authScreen غير موجود في index.html"
     );
 
-
-    if (!authScreen) {
-
-      alert(
-        "authScreen غير موجود في index.html"
-      );
-
-      return;
-
-    }
+    return;
+  }
 
 
-    authScreen.innerHTML = `
+  authScreen.classList.remove("hidden");
 
-      <div class="auth-frame">
+  authScreen.style.display = "flex";
 
-        <div class="auth-decoration">
-          <span>QA</span>
+  authScreen.setAttribute(
+    "aria-hidden",
+    "false"
+  );
+
+
+  if (appShell) {
+    appShell.style.display = "none";
+  }
+
+
+  authScreen.innerHTML = `
+
+    <div class="auth-frame">
+
+      <div class="auth-content">
+
+        <div class="auth-kicker">
+          ADMIN AREA
         </div>
 
+        <h1>
+          ADMIN LOGIN
+        </h1>
 
-        <div class="auth-content">
-
-          <span class="section-label">
-            PRIVATE AREA
-          </span>
-
-
-          <h1>
-            ADMIN LOGIN
-          </h1>
+        <p>
+          Sign in to manage the question archive.
+        </p>
 
 
-          <p class="auth-description">
-            تسجيل الدخول متاح للإدارة فقط.
-          </p>
+        <form
+          id="adminLoginForm"
+          class="auth-form"
+        >
 
-
-          <form
-            id="adminLoginForm"
-            class="auth-form">
-
-            <label for="adminEmail">
-              EMAIL
-            </label>
-
+          <label>
+            Email
 
             <input
               id="adminEmail"
               type="email"
+              autocomplete="email"
               placeholder="admin@example.com"
-              autocomplete="username"
-              required>
+              required
+            >
+
+          </label>
 
 
-            <label for="adminPassword">
-              PASSWORD
-            </label>
+          <label>
+            Password
+
+            <input
+              id="adminPassword"
+              type="password"
+              autocomplete="current-password"
+              placeholder="Password"
+              required
+            >
+
+          </label>
 
 
-            <div class="password-wrap">
-
-              <input
-                id="adminPassword"
-                type="password"
-                placeholder="••••••••"
-                autocomplete="current-password"
-                required>
+          <button
+            type="submit"
+            id="adminSubmitButton"
+          >
+            LOGIN
+          </button>
 
 
-              <button
-                id="toggleAdminPassword"
-                type="button"
-                class="password-toggle">
-
-                SHOW
-
-              </button>
-
-            </div>
+          <button
+            type="button"
+            id="cancelAdminLogin"
+          >
+            CANCEL
+          </button>
 
 
-            <button
-              type="submit"
-              class="archive-button primary">
+          <div
+            id="authStatus"
+            class="auth-status"
+          ></div>
 
-              LOGIN AS ADMIN
-
-              <span class="button-mark">
-                →
-              </span>
-
-            </button>
-
-
-            <button
-              id="cancelAdminLogin"
-              type="button"
-              class="text-button">
-
-              BACK TO ARCHIVE
-
-            </button>
-
-
-            <div
-              id="authStatus"
-              class="auth-status"
-              aria-live="polite">
-            </div>
-
-          </form>
-
-        </div>
+        </form>
 
       </div>
 
-    `;
+    </div>
+
+  `;
 
 
-    appShell.classList.add(
-      "hidden"
+  const form = $("adminLoginForm");
+
+  const cancelButton =
+    $("cancelAdminLogin");
+
+
+  if (form) {
+
+    form.addEventListener(
+      "submit",
+      handleAdminLogin
     );
-
-
-    authScreen.classList.remove(
-      "hidden"
-    );
-
-
-    authScreen.setAttribute(
-      "aria-hidden",
-      "false"
-    );
-
-
-    bindAdminLogin();
-
-  };
-
-
-/* =========================================================
-   ADMIN LOGIN FORM
-   ========================================================= */
-
-function bindAdminLogin() {
-
-  const form =
-    $("#adminLoginForm");
-
-  const email =
-    $("#adminEmail");
-
-  const password =
-    $("#adminPassword");
-
-  const toggle =
-    $("#toggleAdminPassword");
-
-  const cancel =
-    $("#cancelAdminLogin");
-
-  const status =
-    $("#authStatus");
-
-
-  if (!form) {
-
-    console.error(
-      "Admin login form not found."
-    );
-
-    return;
 
   }
 
 
-  /*
-   * Show password
-   */
+  if (cancelButton) {
 
-  toggle?.addEventListener(
-    "click",
-    () => {
+    cancelButton.onclick =
+      closeAdminLogin;
 
-      if (
-        password.type ===
-        "password"
-      ) {
-
-        password.type =
-          "text";
-
-        toggle.textContent =
-          "HIDE";
-
-      } else {
-
-        password.type =
-          "password";
-
-        toggle.textContent =
-          "SHOW";
-
-      }
-
-    }
-  );
-
-
-  /*
-   * Back
-   */
-
-  cancel?.addEventListener(
-    "click",
-    closeAdminLogin
-  );
-
-
-  /*
-   * Submit
-   */
-
-  form.addEventListener(
-    "submit",
-    async (event) => {
-
-      event.preventDefault();
-
-
-      const emailValue =
-        email.value.trim();
-
-      const passwordValue =
-        password.value;
-
-
-      if (
-        !emailValue ||
-        !passwordValue
-      ) {
-
-        setStatus(
-          status,
-          "اكتب البريد الإلكتروني وكلمة المرور.",
-          "error"
-        );
-
-        return;
-
-      }
-
-
-      setStatus(
-        status,
-        "جاري تسجيل الدخول...",
-        "loading"
-      );
-
-
-      try {
-
-        if (!supabase) {
-
-          setStatus(
-            status,
-            "Supabase غير متصل.",
-            "error"
-          );
-
-          return;
-
-        }
-
-
-        /*
-         * تسجيل الدخول
-         */
-
-        const {
-          data,
-          error
-        } =
-          await supabase.auth.signInWithPassword({
-            email:
-              emailValue,
-
-            password:
-              passwordValue
-          });
-
-
-        if (error) {
-
-          console.error(
-            error
-          );
-
-          setStatus(
-            status,
-            getAuthError(error),
-            "error"
-          );
-
-          return;
-
-        }
-
-
-        if (
-          !data?.user
-        ) {
-
-          setStatus(
-            status,
-            "تعذر الحصول على حساب المستخدم.",
-            "error"
-          );
-
-          return;
-
-        }
-
-
-        /*
-         * فحص profile
-         */
-
-        const {
-          data: profile,
-          error: profileError
-        } =
-          await supabase
-            .from(TABLES.profiles)
-            .select("*")
-            .eq(
-              "id",
-              data.user.id
-            )
-            .maybeSingle();
-
-
-        if (
-          profileError
-        ) {
-
-          console.error(
-            profileError
-          );
-
-          await supabase.auth.signOut();
-
-          setStatus(
-            status,
-            "تعذر التحقق من صلاحيات الحساب.",
-            "error"
-          );
-
-          return;
-
-        }
-
-
-        /*
-         * ليس Admin
-         */
-
-        if (
-          !profile ||
-          profile.role !==
-            "admin"
-        ) {
-
-          await supabase.auth.signOut();
-
-
-          setStatus(
-            status,
-            "هذا الحساب ليس حساب Admin.",
-            "error"
-          );
-
-          return;
-
-        }
-
-
-        /*
-         * Admin confirmed
-         */
-
-        currentUser =
-          data.user;
-
-        currentProfile =
-          profile;
-
-
-        userRoleBadge.textContent =
-          "ADMIN";
-
-
-        adminLoginButton.classList.add(
-          "hidden"
-        );
-
-
-        adminNavButton.classList.remove(
-          "hidden"
-        );
-
-
-        closeAdminLogin();
-
-
-        await renderAdminLists();
-
-
-        showToast(
-          "تم تسجيل دخول الأدمن بنجاح.",
-          "success"
-        );
-
-      } catch (error) {
-
-        console.error(
-          error
-        );
-
-        setStatus(
-          status,
-          "حدث خطأ أثناء تسجيل الدخول.",
-          "error"
-        );
-
-      }
-
-    }
-  );
-
+  }
 }
 
 
@@ -1030,37 +404,402 @@ function bindAdminLogin() {
 
 function closeAdminLogin() {
 
-  authScreen.classList.add(
-    "hidden"
-  );
+  const authScreen = $("authScreen");
+  const appShell = $("appShell");
 
-  authScreen.setAttribute(
-    "aria-hidden",
-    "true"
-  );
+  if (authScreen) {
 
-  authScreen.innerHTML =
-    "";
+    authScreen.classList.add("hidden");
 
-  appShell.classList.remove(
-    "hidden"
-  );
+    authScreen.style.display = "none";
 
+    authScreen.setAttribute(
+      "aria-hidden",
+      "true"
+    );
+
+  }
+
+
+  if (appShell) {
+
+    appShell.style.display = "";
+
+  }
 }
 
 
 /* =========================================================
-   CHECK ADMIN SESSION
+   ADMIN LOGIN
    ========================================================= */
 
-async function checkAdminSession(
-  user
-) {
+async function handleAdminLogin(event) {
 
-  if (
-    !supabase ||
-    !user
-  ) return;
+  event.preventDefault();
+
+  const email =
+    $("adminEmail")?.value.trim();
+
+  const password =
+    $("adminPassword")?.value;
+
+  const status =
+    $("authStatus");
+
+  const submitButton =
+    $("adminSubmitButton");
+
+
+  if (!status) {
+    return;
+  }
+
+
+  if (!email || !password) {
+
+    status.textContent =
+      "اكتب البريد الإلكتروني وكلمة المرور.";
+
+    return;
+  }
+
+
+  if (!supabaseClient) {
+
+    status.textContent =
+      "Supabase غير متصل.";
+
+    return;
+  }
+
+
+  try {
+
+    if (submitButton) {
+
+      submitButton.disabled = true;
+
+      submitButton.textContent =
+        "CONNECTING...";
+
+    }
+
+
+    status.textContent =
+      "Connecting to Supabase...";
+
+
+    /*
+      Timeout:
+      يمنع الموقع من البقاء على
+      Logging in إلى ما لا نهاية.
+    */
+
+    const timeoutPromise =
+      new Promise(
+        (_, reject) => {
+
+          setTimeout(
+            () => {
+
+              reject(
+                new Error(
+                  "انتهت مهلة الاتصال بـ Supabase."
+                )
+              );
+
+            },
+            15000
+          );
+
+        }
+      );
+
+
+    const loginPromise =
+      supabaseClient.auth.signInWithPassword({
+        email: email,
+        password: password
+      });
+
+
+    const result =
+      await Promise.race([
+        loginPromise,
+        timeoutPromise
+      ]);
+
+
+    const {
+      data,
+      error
+    } = result;
+
+
+    if (error) {
+
+      console.error(
+        "SUPABASE LOGIN ERROR:",
+        error
+      );
+
+      status.textContent =
+        "Login Error: " +
+        error.message;
+
+      return;
+    }
+
+
+    if (
+      !data ||
+      !data.user
+    ) {
+
+      status.textContent =
+        "لم يتم العثور على المستخدم.";
+
+      return;
+    }
+
+
+    status.textContent =
+      "Checking admin account...";
+
+
+    const profilePromise =
+      supabaseClient
+        .from("profiles")
+        .select(
+          "id, full_name, role"
+        )
+        .eq(
+          "id",
+          data.user.id
+        )
+        .maybeSingle();
+
+
+    const profileTimeout =
+      new Promise(
+        (_, reject) => {
+
+          setTimeout(
+            () => {
+
+              reject(
+                new Error(
+                  "انتهت مهلة قراءة profiles."
+                )
+              );
+
+            },
+            15000
+          );
+
+        }
+      );
+
+
+    const profileResult =
+      await Promise.race([
+        profilePromise,
+        profileTimeout
+      ]);
+
+
+    const {
+      data: profile,
+      error: profileError
+    } = profileResult;
+
+
+    if (profileError) {
+
+      console.error(
+        "PROFILE ERROR:",
+        profileError
+      );
+
+      status.textContent =
+        "Profile Error: " +
+        profileError.message;
+
+      return;
+    }
+
+
+    if (!profile) {
+
+      await supabaseClient.auth.signOut();
+
+      status.textContent =
+        "الحساب موجود ولكن لا يوجد له Profile.";
+
+      return;
+    }
+
+
+    if (
+      profile.role !== "admin"
+    ) {
+
+      await supabaseClient.auth.signOut();
+
+      status.textContent =
+        "هذا الحساب ليس Admin.";
+
+      return;
+    }
+
+
+    currentUser =
+      data.user;
+
+    currentProfile =
+      profile;
+
+
+    status.textContent =
+      "Login successful!";
+
+
+    setAdminUI();
+
+
+    setTimeout(
+      () => {
+
+        closeAdminLogin();
+
+        openAdminDashboard();
+
+      },
+      500
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "ADMIN LOGIN ERROR:",
+      error
+    );
+
+
+    status.textContent =
+      "ERROR: " +
+      (
+        error?.message ||
+        "Unknown error"
+      );
+
+  } finally {
+
+    if (submitButton) {
+
+      submitButton.disabled =
+        false;
+
+      submitButton.textContent =
+        "LOGIN";
+
+    }
+
+  }
+}
+
+
+/* =========================================================
+   EXISTING SESSION
+   ========================================================= */
+
+async function checkExistingAdminSession() {
+
+  if (!supabaseClient) {
+    return;
+  }
+
+
+  try {
+
+    const {
+      data,
+      error
+    } =
+      await supabaseClient.auth.getSession();
+
+
+    if (error) {
+
+      console.error(
+        "SESSION ERROR:",
+        error
+      );
+
+      return;
+    }
+
+
+    if (
+      data &&
+      data.session &&
+      data.session.user
+    ) {
+
+      await checkAdminUser(
+        data.session.user
+      );
+
+    }
+
+  } catch (error) {
+
+    console.error(
+      "SESSION CHECK ERROR:",
+      error
+    );
+
+  }
+
+
+  supabaseClient.auth.onAuthStateChange(
+    async (
+      event,
+      session
+    ) => {
+
+      console.log(
+        "AUTH EVENT:",
+        event
+      );
+
+
+      if (
+        session &&
+        session.user
+      ) {
+
+        await checkAdminUser(
+          session.user
+        );
+
+      }
+
+    }
+  );
+}
+
+
+/* =========================================================
+   CHECK ADMIN USER
+   ========================================================= */
+
+async function checkAdminUser(user) {
+
+  if (!user || !supabaseClient) {
+    return false;
+  }
 
 
   try {
@@ -1069,9 +808,11 @@ async function checkAdminSession(
       data: profile,
       error
     } =
-      await supabase
-        .from(TABLES.profiles)
-        .select("*")
+      await supabaseClient
+        .from("profiles")
+        .select(
+          "id, full_name, role"
+        )
         .eq(
           "id",
           user.id
@@ -1079,31 +820,23 @@ async function checkAdminSession(
         .maybeSingle();
 
 
+    if (error) {
+
+      console.error(
+        "PROFILE CHECK ERROR:",
+        error
+      );
+
+      return false;
+    }
+
+
     if (
-      error ||
       !profile ||
       profile.role !== "admin"
     ) {
 
-      currentUser =
-        null;
-
-      currentProfile =
-        null;
-
-      userRoleBadge.textContent =
-        "STUDENT";
-
-      adminLoginButton.classList.remove(
-        "hidden"
-      );
-
-      adminNavButton.classList.add(
-        "hidden"
-      );
-
-      return;
-
+      return false;
     }
 
 
@@ -1114,45 +847,65 @@ async function checkAdminSession(
       profile;
 
 
-    userRoleBadge.textContent =
-      "ADMIN";
+    setAdminUI();
 
+    return true;
 
-    adminLoginButton.classList.add(
-      "hidden"
-    );
-
-
-    adminNavButton.classList.remove(
-      "hidden"
-    );
-
-
-    await renderAdminLists();
 
   } catch (error) {
 
     console.error(
+      "ADMIN CHECK ERROR:",
       error
     );
 
-  }
+    return false;
 
+  }
 }
 
 
 /* =========================================================
-   ADMIN CHECK
+   ADMIN UI
    ========================================================= */
 
-function isAdmin() {
+function setAdminUI() {
 
-  return (
-    currentProfile &&
-    currentProfile.role ===
-      "admin"
-  );
+  const roleBadge =
+    $("userRoleBadge");
 
+  if (roleBadge) {
+
+    roleBadge.textContent =
+      "ADMIN";
+
+  }
+
+
+  const loginButton =
+    $("adminLoginButton");
+
+  if (loginButton) {
+
+    loginButton.style.display =
+      "none";
+
+  }
+
+
+  const adminButton =
+    $("adminNavButton");
+
+  if (adminButton) {
+
+    adminButton.classList.remove(
+      "hidden"
+    );
+
+    adminButton.style.display =
+      "";
+
+  }
 }
 
 
@@ -1160,68 +913,31 @@ function isAdmin() {
    PUBLIC CONTENT
    ========================================================= */
 
-async function refreshPublicContent() {
+async function loadPublicContent() {
 
-  if (!supabase)
+  if (!supabaseClient) {
     return;
-
-
-  try {
-
-    await Promise.all([
-      loadChapters(),
-      loadQuestions(),
-      loadCategories(),
-      loadSettings()
-    ]);
-
-
-    renderChapters();
-
-    renderCategories();
-
-    renderSearchResults();
-
-    updateContact();
-
-
-    if (
-      selectedChapter
-    ) {
-
-      const exists =
-        chapters.find(
-          (item) =>
-            item.id ===
-            selectedChapter.id
-        );
-
-
-      if (exists) {
-
-        openChapter(
-          exists.id,
-          false
-        );
-
-      }
-
-    }
-
-  } catch (error) {
-
-    console.error(
-      "Content error:",
-      error
-    );
-
   }
 
+
+  await Promise.all([
+    loadChapters(),
+    loadQuestions(),
+    loadCategories(),
+    loadSettings()
+  ]);
+
+
+  renderChapters();
+  renderCategories();
+  renderSearchResults();
+  renderQuestions();
+  renderContact();
 }
 
 
 /* =========================================================
-   LOAD CHAPTERS
+   CHAPTERS
    ========================================================= */
 
 async function loadChapters() {
@@ -1230,8 +946,8 @@ async function loadChapters() {
     data,
     error
   } =
-    await supabase
-      .from(TABLES.chapters)
+    await supabaseClient
+      .from("chapters")
       .select("*")
       .order(
         "sort_order",
@@ -1244,25 +960,210 @@ async function loadChapters() {
   if (error) {
 
     console.error(
-      "Chapters:",
+      "CHAPTERS ERROR:",
       error
     );
 
-    chapters = [];
-
     return;
-
   }
 
 
   chapters =
     data || [];
+}
 
+
+function renderChapters() {
+
+  const container =
+    $("chaptersGrid");
+
+  const empty =
+    $("chaptersEmpty");
+
+
+  if (!container) {
+    return;
+  }
+
+
+  container.innerHTML = "";
+
+
+  if (!chapters.length) {
+
+    if (empty) {
+      empty.classList.remove(
+        "hidden"
+      );
+    }
+
+    return;
+  }
+
+
+  if (empty) {
+    empty.classList.add(
+      "hidden"
+    );
+  }
+
+
+  chapters.forEach(
+    (chapter) => {
+
+      const card =
+        document.createElement(
+          "article"
+        );
+
+
+      card.className =
+        "chapter-card";
+
+
+      card.innerHTML = `
+
+        <div class="chapter-card-image">
+
+          ${
+            chapter.cover_image_url
+              ? `
+                <img
+                  src="${escapeAttribute(
+                    chapter.cover_image_url
+                  )}"
+                  alt="${escapeAttribute(
+                    chapter.name
+                  )}"
+                >
+              `
+              : ""
+          }
+
+        </div>
+
+
+        <div class="chapter-card-body">
+
+          <h3>
+            ${escapeHTML(
+              chapter.name
+            )}
+          </h3>
+
+          <p>
+            ${escapeHTML(
+              chapter.description ||
+              "No description available."
+            )}
+          </p>
+
+          <button
+            type="button"
+            class="text-button"
+            data-chapter-id="${chapter.id}"
+          >
+            OPEN CHAPTER
+          </button>
+
+        </div>
+
+      `;
+
+
+      const button =
+        card.querySelector(
+          "button"
+        );
+
+
+      button.onclick = () => {
+
+        openChapter(
+          chapter.id
+        );
+
+      };
+
+
+      container.appendChild(
+        card
+      );
+
+    }
+  );
 }
 
 
 /* =========================================================
-   LOAD QUESTIONS
+   OPEN CHAPTER
+   ========================================================= */
+
+function openChapter(
+  chapterId
+) {
+
+  selectedChapterId =
+    Number(chapterId);
+
+
+  const chapter =
+    chapters.find(
+      item =>
+        Number(item.id) ===
+        selectedChapterId
+    );
+
+
+  if (!chapter) {
+    return;
+  }
+
+
+  const title =
+    $("selectedChapterTitle");
+
+  const description =
+    $("selectedChapterDescription");
+
+
+  if (title) {
+
+    title.textContent =
+      chapter.name;
+
+  }
+
+
+  if (description) {
+
+    description.textContent =
+      chapter.description ||
+      "";
+
+  }
+
+
+  renderQuestions();
+
+
+  const section =
+    $("questionsSection");
+
+
+  if (section) {
+
+    section.scrollIntoView({
+      behavior: "smooth"
+    });
+
+  }
+}
+
+
+/* =========================================================
+   QUESTIONS
    ========================================================= */
 
 async function loadQuestions() {
@@ -1271,8 +1172,8 @@ async function loadQuestions() {
     data,
     error
   } =
-    await supabase
-      .from(TABLES.questions)
+    await supabaseClient
+      .from("questions")
       .select(`
         *,
         chapters:chapter_id (
@@ -1295,325 +1196,75 @@ async function loadQuestions() {
   if (error) {
 
     console.error(
-      "Questions:",
+      "QUESTIONS ERROR:",
       error
     );
 
-    questions = [];
-
     return;
-
   }
 
 
   questions =
     data || [];
-
 }
 
 
-/* =========================================================
-   LOAD CATEGORIES
-   ========================================================= */
+function renderQuestions() {
 
-async function loadCategories() {
+  const container =
+    $("questionsList");
 
-  const {
-    data,
-    error
-  } =
-    await supabase
-      .from(TABLES.categories)
-      .select("*")
-      .order(
-        "name",
-        {
-          ascending: true
-        }
+  const empty =
+    $("questionsEmpty");
+
+
+  if (!container) {
+    return;
+  }
+
+
+  let list =
+    questions;
+
+
+  if (selectedChapterId) {
+
+    list =
+      list.filter(
+        question =>
+          Number(
+            question.chapter_id
+          ) ===
+          selectedChapterId
       );
 
-
-  if (error) {
-
-    console.error(
-      "Categories:",
-      error
-    );
-
-    categories = [];
-
-    return;
-
   }
 
 
-  categories =
-    data || [];
-
-}
-
-
-/* =========================================================
-   LOAD SETTINGS
-   ========================================================= */
-
-async function loadSettings() {
-
-  const {
-    data,
-    error
-  } =
-    await supabase
-      .from(TABLES.settings)
-      .select("*");
-
-
-  if (error) {
-
-    console.warn(
-      "Settings:",
-      error
-    );
-
-    siteSettings = {};
-
-    return;
-
-  }
-
-
-  siteSettings = {};
-
-
-  (data || []).forEach(
-    (item) => {
-
-      if (
-        item.key
-      ) {
-
-        siteSettings[
-          item.key
-        ] =
-          item.value;
-
-      }
-
-    }
-  );
-
-}
-
-
-/* =========================================================
-   CHAPTERS
-   ========================================================= */
-
-function renderChapters() {
-
-  if (!chaptersGrid)
-    return;
-
-
-  chaptersGrid.innerHTML =
-    "";
-
-
-  if (
-    !chapters.length
-  ) {
-
-    chaptersEmpty.classList.remove(
-      "hidden"
-    );
-
-    return;
-
-  }
-
-
-  chaptersEmpty.classList.add(
-    "hidden"
-  );
-
-
-  chapters.forEach(
-    (chapter, index) => {
-
-      const card =
-        document.createElement(
-          "article"
-        );
-
-
-      card.className =
-        "chapter-card";
-
-
-      const count =
-        questions.filter(
-          (question) =>
-            question.chapter_id ===
-            chapter.id
-        ).length;
-
-
-      card.innerHTML = `
-
-        <div class="chapter-card-number">
-          ${String(
-            index + 1
-          ).padStart(2, "0")}
-        </div>
-
-
-        <div class="chapter-card-content">
-
-          <span class="section-label">
-            CHAPTER ${index + 1}
-          </span>
-
-
-          <h3>
-            ${escapeHTML(
-              chapter.name ||
-              "Chapter"
-            )}
-          </h3>
-
-
-          <p>
-            ${escapeHTML(
-              chapter.description ||
-              ""
-            )}
-          </p>
-
-
-          <span>
-            ${count} سؤال
-          </span>
-
-        </div>
-
-      `;
-
-
-      card.addEventListener(
-        "click",
-        () => {
-
-          openChapter(
-            chapter.id
-          );
-
-        }
-      );
-
-
-      chaptersGrid.appendChild(
-        card
-      );
-
-    }
-  );
-
-}
-
-
-/* =========================================================
-   OPEN CHAPTER
-   ========================================================= */
-
-function openChapter(
-  id,
-  scroll = true
-) {
-
-  const chapter =
-    chapters.find(
-      (item) =>
-        item.id === id
-    );
-
-
-  if (!chapter)
-    return;
-
-
-  selectedChapter =
-    chapter;
-
-
-  selectedChapterTitle.textContent =
-    chapter.name ||
-    "Chapter";
-
-
-  selectedChapterDescription.textContent =
-    chapter.description ||
-    "";
-
-
-  const list =
-    questions.filter(
-      (question) =>
-        question.chapter_id ===
-        chapter.id
-    );
-
-
-  renderQuestions(
-    list
-  );
-
-
-  questionsSection.classList.remove(
-    "hidden"
-  );
-
-
-  if (scroll) {
-
-    questionsSection.scrollIntoView({
-      behavior: "smooth"
-    });
-
-  }
-
-}
-
-
-/* =========================================================
-   QUESTIONS
-   ========================================================= */
-
-function renderQuestions(
-  list
-) {
-
-  questionsList.innerHTML =
-    "";
+  container.innerHTML = "";
 
 
   if (!list.length) {
 
-    questionsEmpty.classList.remove(
-      "hidden"
-    );
+    if (empty) {
+      empty.classList.remove(
+        "hidden"
+      );
+    }
 
     return;
-
   }
 
 
-  questionsEmpty.classList.add(
-    "hidden"
-  );
+  if (empty) {
+    empty.classList.add(
+      "hidden"
+    );
+  }
 
 
   list.forEach(
-    (question, index) => {
+    question => {
 
       const article =
         document.createElement(
@@ -1627,61 +1278,45 @@ function renderQuestions(
 
       article.innerHTML = `
 
-        <div class="question-number">
-          ${String(
-            index + 1
-          ).padStart(2, "0")}
+        <div class="question-card-head">
+
+          <span>
+            ${escapeHTML(
+              question.categories?.name ||
+              "General"
+            )}
+          </span>
+
+          <h3>
+            ${escapeHTML(
+              question.title
+            )}
+          </h3>
+
         </div>
 
 
         <div class="question-body">
 
-          <div class="question-meta">
-
-            ${
-              question.categories?.name
-                ? `
-                  <span>
-                    ${escapeHTML(
-                      question.categories.name
-                    )}
-                  </span>
-                `
-                : ""
-            }
-
-          </div>
-
-
-          <h3>
-            ${escapeHTML(
-              question.title ||
-              "Question"
-            )}
-          </h3>
-
-
           <div class="question-text">
+
             ${formatText(
-              question.question ||
-              ""
+              question.question
             )}
+
           </div>
 
 
           ${
             question.image_url
               ? `
-                <div class="question-media">
-
-                  <img
-                    src="${escapeAttribute(
-                      question.image_url
-                    )}"
-                    alt="Question image"
-                    loading="lazy">
-
-                </div>
+                <img
+                  class="question-image"
+                  src="${escapeAttribute(
+                    question.image_url
+                  )}"
+                  alt=""
+                >
               `
               : ""
           }
@@ -1689,311 +1324,63 @@ function renderQuestions(
 
           ${
             question.video_url
-              ? buildVideo(
+              ? renderVideo(
                   question.video_url
                 )
               : ""
           }
 
 
-          <details class="answer-details">
+          ${
+            question.answer
+              ? `
+                <details>
+                  <summary>
+                    ANSWER
+                  </summary>
 
-            <summary>
-              SHOW ANSWER
-            </summary>
+                  <div class="answer-content">
+                    ${formatText(
+                      question.answer
+                    )}
+                  </div>
 
-
-            <div class="answer-content">
-
-              ${
-                question.answer
-                  ? `
-                    <h4>
-                      الإجابة
-                    </h4>
-
-                    <div>
-                      ${formatText(
-                        question.answer
-                      )}
-                    </div>
-                  `
-                  : ""
-              }
+                </details>
+              `
+              : ""
+          }
 
 
-              ${
-                question.explanation
-                  ? `
-                    <h4>
-                      الشرح
-                    </h4>
+          ${
+            question.explanation
+              ? `
+                <details>
+                  <summary>
+                    EXPLANATION
+                  </summary>
 
-                    <div>
-                      ${formatText(
-                        question.explanation
-                      )}
-                    </div>
-                  `
-                  : ""
-              }
+                  <div class="answer-content">
+                    ${formatText(
+                      question.explanation
+                    )}
+                  </div>
 
-            </div>
-
-          </details>
-
-
-          <button
-            class="copy-question-button"
-            type="button">
-
-            COPY QUESTION
-
-          </button>
+                </details>
+              `
+              : ""
+          }
 
         </div>
 
       `;
 
 
-      const copyButton =
-        article.querySelector(
-          ".copy-question-button"
-        );
-
-
-      copyButton.addEventListener(
-        "click",
-        async () => {
-
-          const text =
-            [
-              question.title,
-              "",
-              question.question,
-              "",
-              question.answer
-                ? `الإجابة:\n${question.answer}`
-                : "",
-              "",
-              question.explanation
-                ? `الشرح:\n${question.explanation}`
-                : ""
-            ]
-              .filter(Boolean)
-              .join("\n");
-
-
-          try {
-
-            await navigator.clipboard.writeText(
-              text
-            );
-
-            copyButton.textContent =
-              "COPIED";
-
-            setTimeout(
-              () => {
-
-                copyButton.textContent =
-                  "COPY QUESTION";
-
-              },
-              1500
-            );
-
-          } catch {
-
-            showToast(
-              "تعذر نسخ السؤال.",
-              "error"
-            );
-
-          }
-
-        }
-      );
-
-
-      questionsList.appendChild(
+      container.appendChild(
         article
       );
 
     }
   );
-
-}
-
-
-/* =========================================================
-   SEARCH
-   ========================================================= */
-
-function renderSearchResults() {
-
-  if (
-    !searchResults
-  )
-    return;
-
-
-  const query =
-    (
-      searchInput?.value ||
-      ""
-    )
-      .trim()
-      .toLowerCase();
-
-
-  const category =
-    categoryFilter?.value ||
-    "";
-
-
-  if (
-    !query &&
-    !category
-  ) {
-
-    searchResults.innerHTML =
-      "";
-
-    searchEmpty.classList.add(
-      "hidden"
-    );
-
-    return;
-
-  }
-
-
-  const results =
-    questions.filter(
-      (question) => {
-
-        const text =
-          [
-            question.title,
-            question.question,
-            question.answer,
-            question.explanation,
-            question.chapters?.name,
-            question.categories?.name
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-
-
-        return (
-          (
-            !query ||
-            text.includes(query)
-          ) &&
-          (
-            !category ||
-            String(
-              question.category_id
-            ) ===
-            String(category)
-          )
-        );
-
-      }
-    );
-
-
-  searchResults.innerHTML =
-    "";
-
-
-  if (!results.length) {
-
-    searchEmpty.classList.remove(
-      "hidden"
-    );
-
-    return;
-
-  }
-
-
-  searchEmpty.classList.add(
-    "hidden"
-  );
-
-
-  results.forEach(
-    (question) => {
-
-      const item =
-        document.createElement(
-          "article"
-        );
-
-
-      item.className =
-        "search-result-card";
-
-
-      item.innerHTML = `
-
-        <span class="section-label">
-          ${escapeHTML(
-            question.chapters?.name ||
-            "ARCHIVE"
-          )}
-        </span>
-
-
-        <h3>
-          ${escapeHTML(
-            question.title ||
-            "Question"
-          )}
-        </h3>
-
-
-        <p>
-          ${escapeHTML(
-            truncate(
-              question.question ||
-              "",
-              220
-            )
-          )}
-        </p>
-
-      `;
-
-
-      item.addEventListener(
-        "click",
-        () => {
-
-          if (
-            question.chapter_id
-          ) {
-
-            openChapter(
-              question.chapter_id
-            );
-
-          }
-
-        }
-      );
-
-
-      searchResults.appendChild(
-        item
-      );
-
-    }
-  );
-
 }
 
 
@@ -2001,23 +1388,58 @@ function renderSearchResults() {
    CATEGORIES
    ========================================================= */
 
+async function loadCategories() {
+
+  const {
+    data,
+    error
+  } =
+    await supabaseClient
+      .from("categories")
+      .select("*")
+      .order(
+        "name",
+        {
+          ascending: true
+        }
+      );
+
+
+  if (error) {
+
+    console.error(
+      "CATEGORIES ERROR:",
+      error
+    );
+
+    return;
+  }
+
+
+  categories =
+    data || [];
+}
+
+
 function renderCategories() {
 
-  if (
-    !categoryFilter
-  )
+  const select =
+    $("categoryFilter");
+
+
+  if (!select) {
     return;
+  }
 
 
-  categoryFilter.innerHTML = `
-    <option value="">
-      كل التصنيفات
-    </option>
-  `;
+  select.innerHTML =
+    `<option value="">
+      All categories
+    </option>`;
 
 
   categories.forEach(
-    (category) => {
+    category => {
 
       const option =
         document.createElement(
@@ -2033,112 +1455,270 @@ function renderCategories() {
         category.name;
 
 
-      categoryFilter.appendChild(
+      select.appendChild(
         option
       );
 
     }
   );
-
 }
 
 
 /* =========================================================
-   CONTACT
+   SEARCH
    ========================================================= */
 
-function updateContact() {
+function renderSearchResults() {
 
-  const number =
-    getSetting(
-      "whatsapp_number",
-      "+201213707524"
+  const container =
+    $("searchResults");
+
+  const empty =
+    $("searchEmpty");
+
+  const input =
+    $("searchInput");
+
+  const filter =
+    $("categoryFilter");
+
+
+  if (!container) {
+    return;
+  }
+
+
+  const query =
+    (
+      input?.value ||
+      ""
+    )
+      .trim()
+      .toLowerCase();
+
+
+  const categoryId =
+    filter?.value || "";
+
+
+  let results =
+    questions;
+
+
+  if (query) {
+
+    results =
+      results.filter(
+        question => {
+
+          const text =
+            [
+              question.title,
+              question.question,
+              question.answer,
+              question.explanation
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase();
+
+
+          return text.includes(
+            query
+          );
+
+        }
+      );
+
+  }
+
+
+  if (categoryId) {
+
+    results =
+      results.filter(
+        question =>
+          String(
+            question.category_id
+          ) ===
+          String(categoryId)
+      );
+
+  }
+
+
+  container.innerHTML = "";
+
+
+  if (!results.length) {
+
+    if (empty) {
+      empty.classList.remove(
+        "hidden"
+      );
+    }
+
+    return;
+  }
+
+
+  if (empty) {
+    empty.classList.add(
+      "hidden"
     );
-
-
-  const message =
-    getSetting(
-      "whatsapp_template",
-      "مرحبًا، أحتاج إلى المساعدة في Question Archive."
-    );
-
-
-  if (
-    contactNumberLabel
-  ) {
-
-    contactNumberLabel.textContent =
-      number;
-
   }
 
 
-  if (
-    generalWhatsApp
-  ) {
+  results.forEach(
+    question => {
 
-    generalWhatsApp.dataset.number =
-      number;
-
-    generalWhatsApp.dataset.message =
-      message;
-
-  }
+      const item =
+        document.createElement(
+          "article"
+        );
 
 
-  if (
-    whatsappNumber
-  ) {
-
-    whatsappNumber.value =
-      number;
-
-  }
+      item.className =
+        "search-result";
 
 
-  if (
-    whatsappTemplate
-  ) {
+      item.innerHTML = `
 
-    whatsappTemplate.value =
-      message;
+        <h3>
+          ${escapeHTML(
+            question.title
+          )}
+        </h3>
 
-  }
+        <p>
+          ${escapeHTML(
+            truncate(
+              question.question,
+              180
+            )
+          )}
+        </p>
 
+        <button
+          type="button"
+          class="text-button"
+        >
+          OPEN
+        </button>
+
+      `;
+
+
+      item
+        .querySelector("button")
+        .onclick = () => {
+
+          if (
+            question.chapter_id
+          ) {
+
+            openChapter(
+              question.chapter_id
+            );
+
+          }
+
+        };
+
+
+      container.appendChild(
+        item
+      );
+
+    }
+  );
 }
 
 
-function openGeneralWhatsApp() {
+/* =========================================================
+   SETTINGS
+   ========================================================= */
+
+async function loadSettings() {
+
+  const {
+    data,
+    error
+  } =
+    await supabaseClient
+      .from("site_settings")
+      .select("*");
+
+
+  if (error) {
+
+    console.error(
+      "SETTINGS ERROR:",
+      error
+    );
+
+    return;
+  }
+
+
+  siteSettings = {};
+
+
+  (data || []).forEach(
+    setting => {
+
+      siteSettings[
+        setting.key
+      ] =
+        setting.value;
+
+    }
+  );
+}
+
+
+function renderContact() {
 
   const number =
-    generalWhatsApp.dataset.number ||
+    siteSettings.whatsapp_number ||
     "+201213707524";
 
 
-  const message =
-    generalWhatsApp.dataset.message ||
-    "مرحبًا، أحتاج إلى المساعدة.";
+  const template =
+    siteSettings.whatsapp_template ||
+    "مرحباً، أحتاج إلى مساعدة.";
 
 
-  const clean =
-    String(number)
-      .replace(
+  const numberLabel =
+    $("contactNumberLabel");
+
+
+  if (numberLabel) {
+
+    numberLabel.textContent =
+      number;
+
+  }
+
+
+  const whatsapp =
+    $("generalWhatsApp");
+
+
+  if (whatsapp) {
+
+    whatsapp.href =
+      "https://wa.me/" +
+      number.replace(
         /\D/g,
         ""
+      ) +
+      "?text=" +
+      encodeURIComponent(
+        template
       );
 
-
-  if (!clean)
-    return;
-
-
-  window.open(
-    `https://wa.me/${clean}?text=${encodeURIComponent(
-      message
-    )}`,
-    "_blank"
-  );
-
+  }
 }
 
 
@@ -2151,112 +1731,102 @@ function openAdminDashboard() {
   if (!isAdmin()) {
 
     showToast(
-      "هذه المنطقة للأدمن فقط.",
-      "error"
+      "يجب تسجيل الدخول كـ Admin."
     );
 
     return;
-
   }
 
 
-  adminOverlay.classList.remove(
+  const overlay =
+    $("adminOverlay");
+
+
+  if (!overlay) {
+    return;
+  }
+
+
+  overlay.classList.remove(
     "hidden"
   );
 
 
-  adminOverlay.setAttribute(
-    "aria-hidden",
-    "false"
-  );
+  overlay.style.display =
+    "flex";
 
 
   renderAdminLists();
-
 }
 
 
 function closeAdminDashboard() {
 
-  adminOverlay.classList.add(
+  const overlay =
+    $("adminOverlay");
+
+
+  if (!overlay) {
+    return;
+  }
+
+
+  overlay.classList.add(
     "hidden"
   );
 
 
-  adminOverlay.setAttribute(
-    "aria-hidden",
-    "true"
-  );
-
+  overlay.style.display =
+    "none";
 }
 
-
-/* =========================================================
-   ADMIN TABS
-   ========================================================= */
-
-function switchAdminTab(
-  name
-) {
-
-  adminTabs.forEach(
-    (button) => {
-
-      button.classList.toggle(
-        "active",
-        button.dataset.adminTab ===
-          name
-      );
-
-    }
-  );
-
-
-  adminPanels.forEach(
-    (panel) => {
-
-      panel.classList.toggle(
-        "active",
-        panel.dataset.adminPanel ===
-          name
-      );
-
-    }
-  );
-
-}
-
-
-/* =========================================================
-   ADMIN LISTS
-   ========================================================= */
 
 async function renderAdminLists() {
 
-  if (!isAdmin())
-    return;
-
-
-  statChapters.textContent =
-    chapters.length;
-
-
-  statQuestions.textContent =
-    questions.length;
-
-
-  statCategories.textContent =
-    categories.length;
-
-
   renderAdminChapters();
-
   renderAdminQuestions();
-
   renderAdminCategories();
 
-  updateContact();
+  updateStats();
 
+  renderAdminContact();
+}
+
+
+function updateStats() {
+
+  const chaptersStat =
+    $("statChapters");
+
+  const questionsStat =
+    $("statQuestions");
+
+  const categoriesStat =
+    $("statCategories");
+
+
+  if (chaptersStat) {
+
+    chaptersStat.textContent =
+      chapters.length;
+
+  }
+
+
+  if (questionsStat) {
+
+    questionsStat.textContent =
+      questions.length;
+
+  }
+
+
+  if (categoriesStat) {
+
+    categoriesStat.textContent =
+      categories.length;
+
+  }
 }
 
 
@@ -2266,22 +1836,20 @@ async function renderAdminLists() {
 
 function renderAdminChapters() {
 
-  adminChaptersList.innerHTML =
-    "";
+  const container =
+    $("adminChaptersList");
 
 
-  if (!chapters.length) {
-
-    adminChaptersList.innerHTML =
-      "<p>لا توجد Chapters.</p>";
-
+  if (!container) {
     return;
-
   }
 
 
+  container.innerHTML = "";
+
+
   chapters.forEach(
-    (chapter) => {
+    chapter => {
 
       const row =
         document.createElement(
@@ -2295,35 +1863,37 @@ function renderAdminChapters() {
 
       row.innerHTML = `
 
-        <div class="admin-list-info">
+        <div>
 
-          <h4>
+          <strong>
             ${escapeHTML(
               chapter.name
             )}
-          </h4>
+          </strong>
 
-          <p>
+          <small>
             ${escapeHTML(
               chapter.description ||
               ""
             )}
-          </p>
+          </small>
 
         </div>
 
 
-        <div class="admin-list-actions">
+        <div class="admin-actions">
 
           <button
-            class="small-button edit"
-            type="button">
+            type="button"
+            data-edit
+          >
             EDIT
           </button>
 
           <button
-            class="small-button danger delete"
-            type="button">
+            type="button"
+            data-delete
+          >
             DELETE
           </button>
 
@@ -2332,42 +1902,33 @@ function renderAdminChapters() {
       `;
 
 
-      row.querySelector(
-        ".edit"
-      ).addEventListener(
-        "click",
-        () => {
-
+      row
+        .querySelector(
+          "[data-edit]"
+        )
+        .onclick = () =>
           openEditor(
             "chapter",
             chapter.id
           );
 
-        }
-      );
 
-
-      row.querySelector(
-        ".delete"
-      ).addEventListener(
-        "click",
-        () => {
-
+      row
+        .querySelector(
+          "[data-delete]"
+        )
+        .onclick = () =>
           deleteChapter(
             chapter.id
           );
 
-        }
-      );
 
-
-      adminChaptersList.appendChild(
+      container.appendChild(
         row
       );
 
     }
   );
-
 }
 
 
@@ -2377,22 +1938,20 @@ function renderAdminChapters() {
 
 function renderAdminQuestions() {
 
-  adminQuestionsList.innerHTML =
-    "";
+  const container =
+    $("adminQuestionsList");
 
 
-  if (!questions.length) {
-
-    adminQuestionsList.innerHTML =
-      "<p>لا توجد Questions.</p>";
-
+  if (!container) {
     return;
-
   }
 
 
+  container.innerHTML = "";
+
+
   questions.forEach(
-    (question) => {
+    question => {
 
       const row =
         document.createElement(
@@ -2406,39 +1965,37 @@ function renderAdminQuestions() {
 
       row.innerHTML = `
 
-        <div class="admin-list-info">
+        <div>
 
-          <h4>
+          <strong>
             ${escapeHTML(
-              question.title ||
-              "Question"
+              question.title
             )}
-          </h4>
+          </strong>
 
-          <p>
+          <small>
             ${escapeHTML(
-              truncate(
-                question.question ||
-                "",
-                150
-              )
+              question.chapters?.name ||
+              "No chapter"
             )}
-          </p>
+          </small>
 
         </div>
 
 
-        <div class="admin-list-actions">
+        <div class="admin-actions">
 
           <button
-            class="small-button edit"
-            type="button">
+            type="button"
+            data-edit
+          >
             EDIT
           </button>
 
           <button
-            class="small-button danger delete"
-            type="button">
+            type="button"
+            data-delete
+          >
             DELETE
           </button>
 
@@ -2447,42 +2004,33 @@ function renderAdminQuestions() {
       `;
 
 
-      row.querySelector(
-        ".edit"
-      ).addEventListener(
-        "click",
-        () => {
-
+      row
+        .querySelector(
+          "[data-edit]"
+        )
+        .onclick = () =>
           openEditor(
             "question",
             question.id
           );
 
-        }
-      );
 
-
-      row.querySelector(
-        ".delete"
-      ).addEventListener(
-        "click",
-        () => {
-
+      row
+        .querySelector(
+          "[data-delete]"
+        )
+        .onclick = () =>
           deleteQuestion(
             question.id
           );
 
-        }
-      );
 
-
-      adminQuestionsList.appendChild(
+      container.appendChild(
         row
       );
 
     }
   );
-
 }
 
 
@@ -2492,22 +2040,20 @@ function renderAdminQuestions() {
 
 function renderAdminCategories() {
 
-  adminCategoriesList.innerHTML =
-    "";
+  const container =
+    $("adminCategoriesList");
 
 
-  if (!categories.length) {
-
-    adminCategoriesList.innerHTML =
-      "<p>لا توجد Categories.</p>";
-
+  if (!container) {
     return;
-
   }
 
 
+  container.innerHTML = "";
+
+
   categories.forEach(
-    (category) => {
+    category => {
 
       const row =
         document.createElement(
@@ -2521,35 +2067,37 @@ function renderAdminCategories() {
 
       row.innerHTML = `
 
-        <div class="admin-list-info">
+        <div>
 
-          <h4>
+          <strong>
             ${escapeHTML(
               category.name
             )}
-          </h4>
+          </strong>
 
-          <p>
+          <small>
             ${escapeHTML(
               category.description ||
               ""
             )}
-          </p>
+          </small>
 
         </div>
 
 
-        <div class="admin-list-actions">
+        <div class="admin-actions">
 
           <button
-            class="small-button edit"
-            type="button">
+            type="button"
+            data-edit
+          >
             EDIT
           </button>
 
           <button
-            class="small-button danger delete"
-            type="button">
+            type="button"
+            data-delete
+          >
             DELETE
           </button>
 
@@ -2558,42 +2106,33 @@ function renderAdminCategories() {
       `;
 
 
-      row.querySelector(
-        ".edit"
-      ).addEventListener(
-        "click",
-        () => {
-
+      row
+        .querySelector(
+          "[data-edit]"
+        )
+        .onclick = () =>
           openEditor(
             "category",
             category.id
           );
 
-        }
-      );
 
-
-      row.querySelector(
-        ".delete"
-      ).addEventListener(
-        "click",
-        () => {
-
+      row
+        .querySelector(
+          "[data-delete]"
+        )
+        .onclick = () =>
           deleteCategory(
             category.id
           );
 
-        }
-      );
 
-
-      adminCategoriesList.appendChild(
+      container.appendChild(
         row
       );
 
     }
   );
-
 }
 
 
@@ -2606,101 +2145,122 @@ function openEditor(
   id = null
 ) {
 
-  if (!isAdmin())
+  if (!isAdmin()) {
+
+    showToast(
+      "Admin only."
+    );
+
     return;
+  }
 
 
-  editorType =
+  const modal =
+    $("editorModal");
+
+
+  const form =
+    $("editorForm");
+
+
+  const title =
+    $("editorTitle");
+
+
+  const kicker =
+    $("editorKicker");
+
+
+  if (
+    !modal ||
+    !form
+  ) {
+    return;
+  }
+
+
+  form.innerHTML = "";
+
+
+  kicker.textContent =
+    type.toUpperCase();
+
+
+  title.textContent =
+    id
+      ? "EDIT"
+      : "CREATE";
+
+
+  form.dataset.type =
     type;
 
-  editingId =
-    id;
+
+  form.dataset.id =
+    id || "";
 
 
-  let item =
-    null;
+  if (type === "chapter") {
 
-
-  if (
-    type === "chapter"
-  ) {
-
-    item =
+    const item =
       chapters.find(
-        (x) =>
-          x.id === id
+        x =>
+          String(x.id) ===
+          String(id)
       );
 
 
-    editorKicker.textContent =
-      "CHAPTER";
-
-
-    editorTitle.textContent =
-      id
-        ? "EDIT CHAPTER"
-        : "ADD CHAPTER";
-
-
-    editorForm.innerHTML = `
+    form.innerHTML = `
 
       <label>
-        CHAPTER NAME
-      </label>
+        Chapter name
 
-      <input
-        id="editorName"
-        type="text"
-        value="${escapeAttribute(
-          item?.name || ""
-        )}"
-        required>
+        <input
+          name="name"
+          required
+          value="${escapeAttribute(
+            item?.name || ""
+          )}"
+        >
+      </label>
 
 
       <label>
-        DESCRIPTION
-      </label>
+        Description
 
-      <textarea
-        id="editorDescription"
-        rows="5">${escapeHTML(
-          item?.description ||
-          ""
+        <textarea
+          name="description"
+        >${escapeHTML(
+          item?.description || ""
         )}</textarea>
+      </label>
 
 
       <label>
-        COVER IMAGE URL
-      </label>
+        Cover image URL
 
-      <input
-        id="editorCover"
-        type="url"
-        value="${escapeAttribute(
-          item?.cover_image_url ||
-          ""
-        )}">
+        <input
+          name="cover_image_url"
+          value="${escapeAttribute(
+            item?.cover_image_url || ""
+          )}"
+        >
+      </label>
 
 
       <label>
-        SORT ORDER
+        Sort order
+
+        <input
+          name="sort_order"
+          type="number"
+          value="${item?.sort_order || 0}"
+        >
       </label>
 
-      <input
-        id="editorSort"
-        type="number"
-        value="${Number(
-          item?.sort_order ||
-          0
-        )}">
 
-
-      <button
-        type="submit"
-        class="archive-button primary">
-
-        SAVE CHAPTER
-
+      <button type="submit">
+        SAVE
       </button>
 
     `;
@@ -2708,60 +2268,44 @@ function openEditor(
   }
 
 
-  if (
-    type === "category"
-  ) {
+  if (type === "category") {
 
-    item =
+    const item =
       categories.find(
-        (x) =>
-          x.id === id
+        x =>
+          String(x.id) ===
+          String(id)
       );
 
 
-    editorKicker.textContent =
-      "CATEGORY";
-
-
-    editorTitle.textContent =
-      id
-        ? "EDIT CATEGORY"
-        : "ADD CATEGORY";
-
-
-    editorForm.innerHTML = `
+    form.innerHTML = `
 
       <label>
-        CATEGORY NAME
-      </label>
+        Category name
 
-      <input
-        id="editorName"
-        type="text"
-        value="${escapeAttribute(
-          item?.name || ""
-        )}"
-        required>
+        <input
+          name="name"
+          required
+          value="${escapeAttribute(
+            item?.name || ""
+          )}"
+        >
+      </label>
 
 
       <label>
-        DESCRIPTION
-      </label>
+        Description
 
-      <textarea
-        id="editorDescription"
-        rows="5">${escapeHTML(
-          item?.description ||
-          ""
+        <textarea
+          name="description"
+        >${escapeHTML(
+          item?.description || ""
         )}</textarea>
+      </label>
 
 
-      <button
-        type="submit"
-        class="archive-button primary">
-
-        SAVE CATEGORY
-
+      <button type="submit">
+        SAVE
       </button>
 
     `;
@@ -2769,213 +2313,178 @@ function openEditor(
   }
 
 
-  if (
-    type === "question"
-  ) {
+  if (type === "question") {
 
-    item =
+    const item =
       questions.find(
-        (x) =>
-          x.id === id
+        x =>
+          String(x.id) ===
+          String(id)
       );
 
 
-    editorKicker.textContent =
-      "QUESTION";
-
-
-    editorTitle.textContent =
-      id
-        ? "EDIT QUESTION"
-        : "ADD QUESTION";
-
-
-    editorForm.innerHTML = `
+    form.innerHTML = `
 
       <label>
-        QUESTION TITLE
-      </label>
+        Title
 
-      <input
-        id="editorTitleInput"
-        type="text"
-        value="${escapeAttribute(
-          item?.title || ""
-        )}"
-        required>
+        <input
+          name="title"
+          required
+          value="${escapeAttribute(
+            item?.title || ""
+          )}"
+        >
+      </label>
 
 
       <label>
-        CHAPTER
-      </label>
+        Chapter
 
-      <select
-        id="editorChapter"
-        required>
+        <select
+          name="chapter_id"
+        >
 
-        <option value="">
-          اختر Chapter
-        </option>
+          <option value="">
+            No chapter
+          </option>
 
-        ${chapters
-          .map(
-            (chapter) => `
-
+          ${chapters.map(
+            chapter => `
               <option
-                value="${escapeAttribute(
-                  chapter.id
-                )}"
+                value="${chapter.id}"
                 ${
                   String(
-                    item?.chapter_id ||
-                    ""
+                    item?.chapter_id
                   ) ===
                   String(
                     chapter.id
                   )
                     ? "selected"
                     : ""
-                }>
-
+                }
+              >
                 ${escapeHTML(
                   chapter.name
                 )}
-
               </option>
-
             `
-          )
-          .join("")}
+          ).join("")}
 
-      </select>
+        </select>
+
+      </label>
 
 
       <label>
-        CATEGORY
-      </label>
+        Category
 
-      <select
-        id="editorCategory">
+        <select
+          name="category_id"
+        >
 
-        <option value="">
-          بدون تصنيف
-        </option>
+          <option value="">
+            No category
+          </option>
 
-        ${categories
-          .map(
-            (category) => `
-
+          ${categories.map(
+            category => `
               <option
-                value="${escapeAttribute(
-                  category.id
-                )}"
+                value="${category.id}"
                 ${
                   String(
-                    item?.category_id ||
-                    ""
+                    item?.category_id
                   ) ===
                   String(
                     category.id
                   )
                     ? "selected"
                     : ""
-                }>
-
+                }
+              >
                 ${escapeHTML(
                   category.name
                 )}
-
               </option>
-
             `
-          )
-          .join("")}
+          ).join("")}
 
-      </select>
+        </select>
+
+      </label>
 
 
       <label>
-        QUESTION
-      </label>
+        Question
 
-      <textarea
-        id="editorQuestion"
-        rows="7"
-        required>${escapeHTML(
-          item?.question ||
-          ""
+        <textarea
+          name="question"
+          required
+        >${escapeHTML(
+          item?.question || ""
         )}</textarea>
+      </label>
 
 
       <label>
-        ANSWER
-      </label>
+        Answer
 
-      <textarea
-        id="editorAnswer"
-        rows="5">${escapeHTML(
-          item?.answer ||
-          ""
+        <textarea
+          name="answer"
+        >${escapeHTML(
+          item?.answer || ""
         )}</textarea>
+      </label>
 
 
       <label>
-        EXPLANATION
-      </label>
+        Explanation
 
-      <textarea
-        id="editorExplanation"
-        rows="7">${escapeHTML(
-          item?.explanation ||
-          ""
+        <textarea
+          name="explanation"
+        >${escapeHTML(
+          item?.explanation || ""
         )}</textarea>
+      </label>
 
 
       <label>
-        IMAGE URL
-      </label>
+        Image URL
 
-      <input
-        id="editorImage"
-        type="url"
-        value="${escapeAttribute(
-          item?.image_url ||
-          ""
-        )}">
+        <input
+          name="image_url"
+          value="${escapeAttribute(
+            item?.image_url || ""
+          )}"
+        >
+      </label>
 
 
       <label>
-        VIDEO URL
-      </label>
+        Video URL
 
-      <input
-        id="editorVideo"
-        type="url"
-        value="${escapeAttribute(
-          item?.video_url ||
-          ""
-        )}">
+        <input
+          name="video_url"
+          value="${escapeAttribute(
+            item?.video_url || ""
+          )}"
+        >
+      </label>
 
 
       <label>
-        SORT ORDER
+        Sort order
+
+        <input
+          name="sort_order"
+          type="number"
+          value="${item?.sort_order || 0}"
+        >
       </label>
 
-      <input
-        id="editorSort"
-        type="number"
-        value="${Number(
-          item?.sort_order ||
-          0
-        )}">
 
-
-      <button
-        type="submit"
-        class="archive-button primary">
-
-        SAVE QUESTION
-
+      <button type="submit">
+        SAVE
       </button>
 
     `;
@@ -2983,26 +2492,38 @@ function openEditor(
   }
 
 
-  editorModal.classList.remove(
+  modal.classList.remove(
     "hidden"
   );
 
 
-  editorModal.setAttribute(
-    "aria-hidden",
-    "false"
+  modal.style.display =
+    "flex";
+}
+
+
+/* =========================================================
+   CLOSE EDITOR
+   ========================================================= */
+
+function closeEditorModal() {
+
+  const modal =
+    $("editorModal");
+
+
+  if (!modal) {
+    return;
+  }
+
+
+  modal.classList.add(
+    "hidden"
   );
 
 
-  editorForm.onsubmit =
-    async (event) => {
-
-      event.preventDefault();
-
-      await saveEditor();
-
-    };
-
+  modal.style.display =
+    "none";
 }
 
 
@@ -3010,68 +2531,95 @@ function openEditor(
    SAVE EDITOR
    ========================================================= */
 
-async function saveEditor() {
+async function saveEditor(event) {
+
+  event.preventDefault();
+
+
+  if (!isAdmin()) {
+
+    showToast(
+      "Admin only."
+    );
+
+    return;
+  }
+
+
+  const form =
+    event.target;
+
+
+  const type =
+    form.dataset.type;
+
+
+  const id =
+    form.dataset.id;
+
+
+  const data =
+    Object.fromEntries(
+      new FormData(form)
+    );
+
 
   try {
 
-    if (
-      editorType ===
-      "chapter"
-    ) {
+    if (type === "chapter") {
 
-      await saveChapter();
-
-    }
-
-
-    if (
-      editorType ===
-      "category"
-    ) {
-
-      await saveCategory();
+      await saveChapter(
+        id,
+        data
+      );
 
     }
 
 
-    if (
-      editorType ===
-      "question"
-    ) {
+    if (type === "category") {
 
-      await saveQuestion();
+      await saveCategory(
+        id,
+        data
+      );
+
+    }
+
+
+    if (type === "question") {
+
+      await saveQuestion(
+        id,
+        data
+      );
 
     }
 
 
     closeEditorModal();
 
+    await loadPublicContent();
 
-    await refreshPublicContent();
-
-
-    await renderAdminLists();
-
+    renderAdminLists();
 
     showToast(
-      "تم الحفظ بنجاح.",
-      "success"
+      "Saved successfully."
     );
+
 
   } catch (error) {
 
     console.error(
+      "SAVE ERROR:",
       error
     );
 
     showToast(
       error.message ||
-      "حدث خطأ أثناء الحفظ.",
-      "error"
+      "Save failed."
     );
 
   }
-
 }
 
 
@@ -3079,105 +2627,62 @@ async function saveEditor() {
    SAVE CHAPTER
    ========================================================= */
 
-async function saveChapter() {
-
-  const name =
-    $("#editorName")
-      .value
-      .trim();
-
-
-  const description =
-    $("#editorDescription")
-      .value
-      .trim();
-
-
-  const cover =
-    $("#editorCover")
-      .value
-      .trim();
-
-
-  const sort =
-    Number(
-      $("#editorSort")
-        .value ||
-      0
-    );
-
-
-  if (!name) {
-
-    throw new Error(
-      "اكتب اسم الـChapter."
-    );
-
-  }
-
+async function saveChapter(
+  id,
+  data
+) {
 
   const payload = {
 
-    name,
+    name:
+      data.name,
 
     description:
-      description ||
-      null,
+      data.description || null,
 
     cover_image_url:
-      cover ||
-      null,
+      data.cover_image_url || null,
 
     sort_order:
-      sort
+      Number(
+        data.sort_order || 0
+      ),
+
+    created_by:
+      currentUser?.id || null
 
   };
 
 
-  if (editingId) {
+  let result;
 
-    const {
-      error
-    } =
-      await supabase
-        .from(
-          TABLES.chapters
-        )
-        .update(
-          payload
-        )
+
+  if (id) {
+
+    result =
+      await supabaseClient
+        .from("chapters")
+        .update(payload)
         .eq(
           "id",
-          editingId
+          id
         );
-
-
-    if (error)
-      throw error;
 
   } else {
 
-    payload.created_by =
-      currentUser.id;
-
-
-    const {
-      error
-    } =
-      await supabase
-        .from(
-          TABLES.chapters
-        )
+    result =
+      await supabaseClient
+        .from("chapters")
         .insert(
           payload
         );
 
-
-    if (error)
-      throw error;
-
   }
 
+
+  if (result.error) {
+    throw result.error;
+  }
 }
 
 
@@ -3185,84 +2690,54 @@ async function saveChapter() {
    SAVE CATEGORY
    ========================================================= */
 
-async function saveCategory() {
-
-  const name =
-    $("#editorName")
-      .value
-      .trim();
-
-
-  const description =
-    $("#editorDescription")
-      .value
-      .trim();
-
-
-  if (!name) {
-
-    throw new Error(
-      "اكتب اسم الـCategory."
-    );
-
-  }
-
+async function saveCategory(
+  id,
+  data
+) {
 
   const payload = {
 
-    name,
+    name:
+      data.name,
 
     description:
-      description ||
-      null
+      data.description || null,
+
+    created_by:
+      currentUser?.id || null
 
   };
 
 
-  if (editingId) {
+  let result;
 
-    const {
-      error
-    } =
-      await supabase
-        .from(
-          TABLES.categories
-        )
-        .update(
-          payload
-        )
+
+  if (id) {
+
+    result =
+      await supabaseClient
+        .from("categories")
+        .update(payload)
         .eq(
           "id",
-          editingId
+          id
         );
-
-
-    if (error)
-      throw error;
 
   } else {
 
-    payload.created_by =
-      currentUser.id;
-
-
-    const {
-      error
-    } =
-      await supabase
-        .from(
-          TABLES.categories
-        )
+    result =
+      await supabaseClient
+        .from("categories")
         .insert(
           payload
         );
 
-
-    if (error)
-      throw error;
-
   }
 
+
+  if (result.error) {
+    throw result.error;
+  }
 }
 
 
@@ -3270,159 +2745,85 @@ async function saveCategory() {
    SAVE QUESTION
    ========================================================= */
 
-async function saveQuestion() {
-
-  const title =
-    $("#editorTitleInput")
-      .value
-      .trim();
-
-
-  const chapter =
-    $("#editorChapter")
-      .value;
-
-
-  const category =
-    $("#editorCategory")
-      .value ||
-      null;
-
-
-  const question =
-    $("#editorQuestion")
-      .value
-      .trim();
-
-
-  const answer =
-    $("#editorAnswer")
-      .value
-      .trim();
-
-
-  const explanation =
-    $("#editorExplanation")
-      .value
-      .trim();
-
-
-  const image =
-    $("#editorImage")
-      .value
-      .trim();
-
-
-  const video =
-    $("#editorVideo")
-      .value
-      .trim();
-
-
-  const sort =
-    Number(
-      $("#editorSort")
-        .value ||
-      0
-    );
-
-
-  if (!title)
-    throw new Error(
-      "اكتب عنوان السؤال."
-    );
-
-
-  if (!chapter)
-    throw new Error(
-      "اختر Chapter."
-    );
-
-
-  if (!question)
-    throw new Error(
-      "اكتب السؤال."
-    );
-
+async function saveQuestion(
+  id,
+  data
+) {
 
   const payload = {
 
-    title,
+    title:
+      data.title,
 
     chapter_id:
-      chapter,
+      data.chapter_id
+        ? Number(
+            data.chapter_id
+          )
+        : null,
 
     category_id:
-      category,
+      data.category_id
+        ? Number(
+            data.category_id
+          )
+        : null,
 
-    question,
+    question:
+      data.question,
 
     answer:
-      answer ||
-      null,
+      data.answer || null,
 
     explanation:
-      explanation ||
-      null,
+      data.explanation || null,
 
     image_url:
-      image ||
-      null,
+      data.image_url || null,
 
     video_url:
-      video ||
-      null,
+      data.video_url || null,
 
     sort_order:
-      sort
+      Number(
+        data.sort_order || 0
+      ),
+
+    created_by:
+      currentUser?.id || null
 
   };
 
 
-  if (editingId) {
+  let result;
 
-    const {
-      error
-    } =
-      await supabase
-        .from(
-          TABLES.questions
-        )
-        .update(
-          payload
-        )
+
+  if (id) {
+
+    result =
+      await supabaseClient
+        .from("questions")
+        .update(payload)
         .eq(
           "id",
-          editingId
+          id
         );
-
-
-    if (error)
-      throw error;
 
   } else {
 
-    payload.created_by =
-      currentUser.id;
-
-
-    const {
-      error
-    } =
-      await supabase
-        .from(
-          TABLES.questions
-        )
+    result =
+      await supabaseClient
+        .from("questions")
         .insert(
           payload
         );
 
-
-    if (error)
-      throw error;
-
   }
 
+
+  if (result.error) {
+    throw result.error;
+  }
 }
 
 
@@ -3434,45 +2835,25 @@ async function deleteChapter(
   id
 ) {
 
-  if (!isAdmin())
+  if (!isAdmin()) {
     return;
-
-
-  const hasQuestions =
-    questions.some(
-      (question) =>
-        question.chapter_id ===
-        id
-    );
-
-
-  if (hasQuestions) {
-
-    showToast(
-      "احذف أسئلة الـChapter أولًا.",
-      "error"
-    );
-
-    return;
-
   }
 
 
   if (
     !confirm(
-      "هل تريد حذف هذا Chapter؟"
+      "Delete this chapter?"
     )
-  )
+  ) {
     return;
+  }
 
 
   const {
     error
   } =
-    await supabase
-      .from(
-        TABLES.chapters
-      )
+    await supabaseClient
+      .from("chapters")
       .delete()
       .eq(
         "id",
@@ -3483,25 +2864,20 @@ async function deleteChapter(
   if (error) {
 
     showToast(
-      getDbError(error),
-      "error"
+      error.message
     );
 
     return;
-
   }
 
 
-  await refreshPublicContent();
+  await loadPublicContent();
 
-  await renderAdminLists();
-
+  renderAdminLists();
 
   showToast(
-    "تم حذف Chapter.",
-    "success"
+    "Chapter deleted."
   );
-
 }
 
 
@@ -3513,25 +2889,25 @@ async function deleteQuestion(
   id
 ) {
 
-  if (!isAdmin())
+  if (!isAdmin()) {
     return;
+  }
 
 
   if (
     !confirm(
-      "هل تريد حذف هذا السؤال؟"
+      "Delete this question?"
     )
-  )
+  ) {
     return;
+  }
 
 
   const {
     error
   } =
-    await supabase
-      .from(
-        TABLES.questions
-      )
+    await supabaseClient
+      .from("questions")
       .delete()
       .eq(
         "id",
@@ -3542,25 +2918,20 @@ async function deleteQuestion(
   if (error) {
 
     showToast(
-      getDbError(error),
-      "error"
+      error.message
     );
 
     return;
-
   }
 
 
-  await refreshPublicContent();
+  await loadPublicContent();
 
-  await renderAdminLists();
-
+  renderAdminLists();
 
   showToast(
-    "تم حذف السؤال.",
-    "success"
+    "Question deleted."
   );
-
 }
 
 
@@ -3572,47 +2943,25 @@ async function deleteCategory(
   id
 ) {
 
-  if (!isAdmin())
+  if (!isAdmin()) {
     return;
-
-
-  const used =
-    questions.some(
-      (question) =>
-        String(
-          question.category_id
-        ) ===
-        String(id)
-    );
-
-
-  if (used) {
-
-    showToast(
-      "هذا التصنيف مستخدم في سؤال.",
-      "error"
-    );
-
-    return;
-
   }
 
 
   if (
     !confirm(
-      "هل تريد حذف هذا التصنيف؟"
+      "Delete this category?"
     )
-  )
+  ) {
     return;
+  }
 
 
   const {
     error
   } =
-    await supabase
-      .from(
-        TABLES.categories
-      )
+    await supabaseClient
+      .from("categories")
       .delete()
       .eq(
         "id",
@@ -3623,31 +2972,54 @@ async function deleteCategory(
   if (error) {
 
     showToast(
-      getDbError(error),
-      "error"
+      error.message
     );
 
     return;
-
   }
 
 
-  await refreshPublicContent();
+  await loadPublicContent();
 
-  await renderAdminLists();
-
+  renderAdminLists();
 
   showToast(
-    "تم حذف التصنيف.",
-    "success"
+    "Category deleted."
   );
-
 }
 
 
 /* =========================================================
    CONTACT SETTINGS
    ========================================================= */
+
+function renderAdminContact() {
+
+  const numberInput =
+    $("whatsappNumber");
+
+  const templateInput =
+    $("whatsappTemplate");
+
+
+  if (numberInput) {
+
+    numberInput.value =
+      siteSettings.whatsapp_number ||
+      "";
+
+  }
+
+
+  if (templateInput) {
+
+    templateInput.value =
+      siteSettings.whatsapp_template ||
+      "";
+
+  }
+}
+
 
 async function saveContactSettings(
   event
@@ -3656,16 +3028,24 @@ async function saveContactSettings(
   event.preventDefault();
 
 
-  if (!isAdmin())
+  if (!isAdmin()) {
+
+    showToast(
+      "Admin only."
+    );
+
     return;
+  }
 
 
   const number =
-    whatsappNumber.value.trim();
+    $("whatsappNumber")?.value
+      .trim();
 
 
-  const message =
-    whatsappTemplate.value.trim();
+  const template =
+    $("whatsappTemplate")?.value
+      .trim();
 
 
   try {
@@ -3678,19 +3058,21 @@ async function saveContactSettings(
 
     await upsertSetting(
       "whatsapp_template",
-      message
+      template
     );
 
 
     await loadSettings();
 
-    updateContact();
+    renderContact();
+
+    renderAdminContact();
 
 
     showToast(
-      "تم حفظ الإعدادات.",
-      "success"
+      "Contact settings saved."
     );
+
 
   } catch (error) {
 
@@ -3699,12 +3081,10 @@ async function saveContactSettings(
     );
 
     showToast(
-      getDbError(error),
-      "error"
+      error.message
     );
 
   }
-
 }
 
 
@@ -3714,79 +3094,28 @@ async function upsertSetting(
 ) {
 
   const {
-    data: existing,
-    error: findError
+    error
   } =
-    await supabase
-      .from(
-        TABLES.settings
-      )
-      .select("key")
-      .eq(
-        "key",
-        key
-      )
-      .maybeSingle();
-
-
-  if (findError)
-    throw findError;
-
-
-  if (existing) {
-
-    const {
-      error
-    } =
-      await supabase
-        .from(
-          TABLES.settings
-        )
-        .update({
-          value,
-          updated_by:
-            currentUser.id,
-          updated_at:
-            new Date().toISOString()
-        })
-        .eq(
-          "key",
-          key
-        );
-
-
-    if (error)
-      throw error;
-
-  } else {
-
-    const {
-      error
-    } =
-      await supabase
-        .from(
-          TABLES.settings
-        )
-        .insert({
-
+    await supabaseClient
+      .from("site_settings")
+      .upsert(
+        {
           key,
-
           value,
-
           updated_by:
-            currentUser.id,
-
+            currentUser?.id || null,
           updated_at:
             new Date().toISOString()
+        },
+        {
+          onConflict: "key"
+        }
+      );
 
-        });
 
-
-    if (error)
-      throw error;
-
+  if (error) {
+    throw error;
   }
-
 }
 
 
@@ -3794,31 +3123,28 @@ async function upsertSetting(
    VIDEO
    ========================================================= */
 
-function buildVideo(
+function renderVideo(
   url
 ) {
 
-  const id =
+  const youtubeId =
     getYouTubeId(url);
 
 
-  if (id) {
+  if (!youtubeId) {
 
     return `
-
-      <div class="question-video">
-
-        <iframe
-          src="https://www.youtube.com/embed/${escapeAttribute(
-            id
+      <div class="video-link">
+        <a
+          href="${escapeAttribute(
+            url
           )}"
-          title="Question video"
-          loading="lazy"
-          allowfullscreen>
-        </iframe>
-
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          WATCH VIDEO
+        </a>
       </div>
-
     `;
 
   }
@@ -3826,29 +3152,31 @@ function buildVideo(
 
   return `
 
-    <div class="video-link-box">
+    <div class="video-wrapper">
 
-      <a
-        href="${escapeAttribute(
-          url
+      <iframe
+        src="https://www.youtube.com/embed/${escapeAttribute(
+          youtubeId
         )}"
-        target="_blank"
-        rel="noopener noreferrer">
-
-        OPEN VIDEO
-
-      </a>
+        title="Question video"
+        loading="lazy"
+        allowfullscreen
+      ></iframe>
 
     </div>
 
   `;
-
 }
 
 
 function getYouTubeId(
   url
 ) {
+
+  if (!url) {
+    return null;
+  }
+
 
   try {
 
@@ -3866,10 +3194,7 @@ function getYouTubeId(
         .replace(
           "/",
           ""
-        )
-        .split(
-          "/"
-        )[0];
+        );
 
     }
 
@@ -3881,8 +3206,9 @@ function getYouTubeId(
     ) {
 
       if (
-        parsed.pathname ===
-        "/watch"
+        parsed.searchParams.has(
+          "v"
+        )
       ) {
 
         return parsed.searchParams.get(
@@ -3892,42 +3218,32 @@ function getYouTubeId(
       }
 
 
-      if (
-        parsed.pathname.startsWith(
-          "/embed/"
-        )
-      ) {
+      const parts =
+        parsed.pathname.split(
+          "/"
+        );
 
-        return parsed.pathname
-          .split(
-            "/embed/"
-          )[1]
-          ?.split(
-            "/"
-          )[0];
 
-      }
+      const index =
+        parts.indexOf(
+          "embed"
+        );
 
 
       if (
-        parsed.pathname.startsWith(
-          "/shorts/"
-        )
+        index !== -1 &&
+        parts[index + 1]
       ) {
 
-        return parsed.pathname
-          .split(
-            "/shorts/"
-          )[1]
-          ?.split(
-            "/"
-          )[0];
+        return parts[
+          index + 1
+        ];
 
       }
 
     }
 
-  } catch {
+  } catch (error) {
 
     return null;
 
@@ -3935,142 +3251,76 @@ function getYouTubeId(
 
 
   return null;
-
 }
 
 
 /* =========================================================
-   CLOSE EDITOR
+   ADMIN CHECK
    ========================================================= */
 
-function closeEditorModal() {
+function isAdmin() {
 
-  editorModal?.classList.add(
-    "hidden"
+  return (
+    currentUser &&
+    currentProfile &&
+    currentProfile.role ===
+      "admin"
   );
+}
 
 
-  editorModal?.setAttribute(
-    "aria-hidden",
-    "true"
-  );
+/* =========================================================
+   TOAST
+   ========================================================= */
+
+function showToast(
+  message
+) {
+
+  const region =
+    $("toastRegion");
 
 
-  if (editorForm) {
+  if (!region) {
 
-    editorForm.innerHTML =
-      "";
+    alert(message);
 
-    editorForm.onsubmit =
-      null;
-
+    return;
   }
 
 
-  editorType =
-    null;
-
-  editingId =
-    null;
-
-}
+  const toast =
+    document.createElement(
+      "div"
+    );
 
 
-/* =========================================================
-   STATUS
-   ========================================================= */
-
-function setStatus(
-  element,
-  message,
-  type
-) {
-
-  if (!element)
-    return;
+  toast.className =
+    "toast";
 
 
-  element.textContent =
+  toast.textContent =
     message;
 
 
-  element.className =
-    `auth-status ${type || ""}`;
-
-}
-
-
-function getAuthError(
-  error
-) {
-
-  const message =
-    String(
-      error?.message ||
-      ""
-    ).toLowerCase();
-
-
-  if (
-    message.includes(
-      "invalid login credentials"
-    )
-  ) {
-
-    return "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
-
-  }
-
-
-  if (
-    message.includes(
-      "email not confirmed"
-    )
-  ) {
-
-    return "يجب تأكيد البريد الإلكتروني أولًا.";
-
-  }
-
-
-  return (
-    error?.message ||
-    "تعذر تسجيل الدخول."
+  region.appendChild(
+    toast
   );
 
+
+  setTimeout(
+    () => {
+
+      toast.remove();
+
+    },
+    4000
+  );
 }
 
 
 /* =========================================================
-   SETTINGS
-   ========================================================= */
-
-function getSetting(
-  key,
-  fallback
-) {
-
-  if (
-    siteSettings[key] ===
-    undefined ||
-    siteSettings[key] ===
-    null ||
-    siteSettings[key] ===
-    ""
-  ) {
-
-    return fallback;
-
-  }
-
-
-  return siteSettings[key];
-
-}
-
-
-/* =========================================================
-   TEXT
+   HELPERS
    ========================================================= */
 
 function escapeHTML(
@@ -4078,8 +3328,7 @@ function escapeHTML(
 ) {
 
   return String(
-    value ??
-    ""
+    value ?? ""
   )
     .replace(
       /&/g,
@@ -4101,7 +3350,6 @@ function escapeHTML(
       /'/g,
       "&#039;"
     );
-
 }
 
 
@@ -4112,21 +3360,20 @@ function escapeAttribute(
   return escapeHTML(
     value
   );
-
 }
 
 
 function formatText(
-  text
+  value
 ) {
 
   return escapeHTML(
-    text
-  ).replace(
-    /\n/g,
-    "<br>"
-  );
-
+    value || ""
+  )
+    .replace(
+      /\n/g,
+      "<br>"
+    );
 }
 
 
@@ -4137,8 +3384,7 @@ function truncate(
 
   const value =
     String(
-      text ||
-      ""
+      text || ""
     );
 
 
@@ -4159,124 +3405,45 @@ function truncate(
     ) +
     "..."
   );
-
 }
 
 
 /* =========================================================
-   TOAST
+   MOBILE MENU
    ========================================================= */
 
-function showToast(
-  message,
-  type = "info"
+const mobileMenuButton =
+  $("mobileMenuButton");
+
+const mainNav =
+  $("mainNav");
+
+
+if (
+  mobileMenuButton &&
+  mainNav
 ) {
 
-  if (!toastRegion)
-    return;
+  mobileMenuButton.onclick =
+    function () {
 
-
-  const toast =
-    document.createElement(
-      "div"
-    );
-
-
-  toast.className =
-    `toast ${type}`;
-
-
-  toast.textContent =
-    message;
-
-
-  toastRegion.appendChild(
-    toast
-  );
-
-
-  setTimeout(
-    () => {
-
-      toast.classList.add(
-        "show"
+      mainNav.classList.toggle(
+        "open"
       );
 
-    },
-    20
-  );
-
-
-  setTimeout(
-    () => {
-
-      toast.classList.remove(
-        "show"
-      );
-
-
-      setTimeout(
-        () => {
-
-          toast.remove();
-
-        },
-        300
-      );
-
-    },
-    3000
-  );
+    };
 
 }
 
 
 /* =========================================================
-   DATABASE ERROR
+   DEBUG
    ========================================================= */
 
-function getDbError(
-  error
-) {
-
-  if (
-    error?.code ===
-    "42501"
-  ) {
-
-    return "لا توجد صلاحية لتنفيذ العملية. تحقق من RLS في Supabase.";
-
-  }
-
-
-  if (
-    error?.code ===
-    "23505"
-  ) {
-
-    return "العنصر موجود بالفعل.";
-
-  }
-
-
-  if (
-    error?.code ===
-    "23503"
-  ) {
-
-    return "لا يمكن تنفيذ العملية لأن هناك بيانات مرتبطة بهذا العنصر.";
-
-  }
-
-
-  return (
-    error?.message ||
-    "حدث خطأ في قاعدة البيانات."
-  );
-
-}
-
-
-/* =========================================================
-   END
-   ========================================================= */
+console.log(
+  "Question Archive app.js loaded successfully."
+);
+console.log(
+  "Supabase URL:",
+  SUPABASE_URL
+);
