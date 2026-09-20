@@ -2,14 +2,13 @@
    QUESTION ARCHIVE — SUPABASE APP
    ========================================================= */
 
-/* =========================================================
-   EDIT ONLY THESE PUBLIC SETTINGS
 
-   Supabase URL + ANON/PUBLISHABLE KEY are safe for browser use.
-   NEVER put a Service Role Key here.
+/* =========================================================
+   PUBLIC SUPABASE SETTINGS
    ========================================================= */
 
-const SUPABASE_URL = "https://ezzvciyzqpgbbokopvzx.supabase.co";
+const SUPABASE_URL =
+  "https://ezzvciyzqpgbbokopvzx.supabase.co";
 
 const SUPABASE_ANON_KEY =
   "sb_publishable_8LtNCb9mSVJutvGk7mBJRA_nfG3gd4f";
@@ -30,12 +29,14 @@ const TABLES = {
    ========================================================= */
 
 let supabase = null;
+
 let currentUser = null;
 let currentProfile = null;
 
 let chapters = [];
 let questions = [];
 let categories = [];
+
 let siteSettings = {};
 
 let selectedChapter = null;
@@ -53,7 +54,10 @@ let searchTimer = null;
    ========================================================= */
 
 const $ = (selector) => document.querySelector(selector);
-const $$ = (selector) => [...document.querySelectorAll(selector)];
+
+const $$ = (selector) =>
+  [...document.querySelectorAll(selector)];
+
 
 const authScreen = $("#authScreen");
 const appShell = $("#appShell");
@@ -66,8 +70,10 @@ const authStatus = $("#authStatus");
 
 const mobileMenuButton = $("#mobileMenuButton");
 const mainNav = $("#mainNav");
+
 const adminNavButton = $("#adminNavButton");
 const logoutButton = $("#logoutButton");
+
 const userRoleBadge = $("#userRoleBadge");
 
 const chaptersGrid = $("#chaptersGrid");
@@ -76,11 +82,13 @@ const chaptersEmpty = $("#chaptersEmpty");
 const questionsSection = $("#questionsSection");
 const selectedChapterTitle = $("#selectedChapterTitle");
 const selectedChapterDescription = $("#selectedChapterDescription");
+
 const questionsList = $("#questionsList");
 const questionsEmpty = $("#questionsEmpty");
 
 const searchInput = $("#searchInput");
 const categoryFilter = $("#categoryFilter");
+
 const searchResults = $("#searchResults");
 const searchEmpty = $("#searchEmpty");
 
@@ -94,8 +102,8 @@ const closeAdmin = $("#closeAdmin");
 
 const editorModal = $("#editorModal");
 const closeEditor = $("#closeEditor");
-
 const editorForm = $("#editorForm");
+
 const editorTitle = $("#editorTitle");
 const editorKicker = $("#editorKicker");
 
@@ -108,53 +116,97 @@ const toastRegion = $("#toastRegion");
 
 document.addEventListener("DOMContentLoaded", boot);
 
+
 async function boot() {
 
-  if (footerYear) {
-    footerYear.textContent = new Date().getFullYear();
-  }
+  footerYear.textContent =
+    new Date().getFullYear();
+
 
   bindStaticEvents();
 
+
   if (!isSupabaseConfigured()) {
+
     showConfigMessage();
+
     return;
   }
 
-  if (!window.supabase) {
-    showConfigMessage();
-    authStatus.textContent =
-      "تعذر تحميل مكتبة Supabase. تأكد من إضافة supabase-js في index.html.";
-    return;
-  }
 
-  supabase = window.supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_ANON_KEY
-  );
+  supabase =
+    window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_ANON_KEY
+    );
+
+
+  /*
+   * الطالب يدخل مباشرة.
+   */
+
+  authScreen.classList.add("hidden");
+
+  appShell.classList.remove("hidden");
+
+  userRoleBadge.textContent = "STUDENT";
+
+  adminNavButton.classList.add("hidden");
+
+  logoutButton.classList.add("hidden");
+
+
+  /*
+   * تحميل المحتوى العام.
+   */
+
+  await refreshPublicContent();
+
+
+  /*
+   * التحقق هل يوجد Admin مسجل بالفعل.
+   */
 
   const {
     data: { session }
   } = await supabase.auth.getSession();
 
+
   if (session?.user) {
-    await enterAuthenticatedApp(session.user);
-  } else {
-    showAuth();
+
+    await loadAdminSession(session.user);
   }
 
-  supabase.auth.onAuthStateChange(async (event, session) => {
 
-    if (event === "SIGNED_OUT") {
-      showAuth();
-      return;
+  /*
+   * متابعة حالة Auth.
+   */
+
+  supabase.auth.onAuthStateChange(
+    async (event, session) => {
+
+      if (event === "SIGNED_OUT") {
+
+        currentUser = null;
+        currentProfile = null;
+
+        adminNavButton.classList.add("hidden");
+
+        logoutButton.classList.add("hidden");
+
+        userRoleBadge.textContent = "STUDENT";
+
+        return;
+      }
+
+
+      if (session?.user) {
+
+        await loadAdminSession(session.user);
+      }
+
     }
-
-    if (session?.user && !currentUser) {
-      await enterAuthenticatedApp(session.user);
-    }
-
-  });
+  );
 }
 
 
@@ -170,7 +222,6 @@ function isSupabaseConfigured() {
     !SUPABASE_URL.includes("YOUR_SUPABASE") &&
     !SUPABASE_ANON_KEY.includes("YOUR_SUPABASE")
   );
-
 }
 
 
@@ -182,221 +233,14 @@ function showConfigMessage() {
     "أكمل إعداد SUPABASE_URL و SUPABASE_ANON_KEY في بداية app.js.";
 
   authStatus.className = "form-status";
-
 }
 
 
 /* =========================================================
-   AUTH SCREEN
+   PUBLIC CONTENT
    ========================================================= */
 
-function showAuth() {
-
-  currentUser = null;
-  currentProfile = null;
-
-  if (appShell) {
-    appShell.classList.add("hidden");
-  }
-
-  if (authScreen) {
-    authScreen.classList.remove("exit");
-  }
-
-}
-
-
-/* =========================================================
-   AUTH
-   ========================================================= */
-
-if (loginForm) {
-
-  loginForm.addEventListener("submit", async (event) => {
-
-    event.preventDefault();
-
-    if (!supabase) {
-      showConfigMessage();
-      return;
-    }
-
-    const email = emailInput.value.trim();
-    const password = passwordInput.value;
-
-    if (!email || !password) {
-      setAuthStatus(
-        "أدخل البريد الإلكتروني وكلمة المرور.",
-        true
-      );
-      return;
-    }
-
-    setAuthStatus("جاري التحقق...", false);
-
-    const {
-      data,
-      error
-    } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-
-    if (error) {
-      setAuthStatus(getAuthError(error), true);
-      return;
-    }
-
-    if (data?.user) {
-      await enterAuthenticatedApp(data.user);
-    }
-
-  });
-
-}
-
-
-if (togglePassword) {
-
-  togglePassword.addEventListener("click", () => {
-
-    const show = passwordInput.type === "password";
-
-    passwordInput.type = show ? "text" : "password";
-
-    togglePassword.textContent = show
-      ? "HIDE"
-      : "SHOW";
-
-  });
-
-}
-
-
-if (logoutButton) {
-
-  logoutButton.addEventListener("click", async () => {
-
-    if (!supabase) return;
-
-    await supabase.auth.signOut();
-
-    closeAdminPanel();
-
-    showToast(
-      "تم تسجيل الخروج.",
-      "success"
-    );
-
-  });
-
-}
-
-
-function setAuthStatus(message, error = false) {
-
-  if (!authStatus) return;
-
-  authStatus.textContent = message;
-
-  authStatus.style.color = error
-    ? "#c98269"
-    : "#b39257";
-
-}
-
-
-function getAuthError(error) {
-
-  const message = String(
-    error?.message || ""
-  );
-
-  if (
-    message
-      .toLowerCase()
-      .includes("invalid login")
-  ) {
-    return "بيانات الدخول غير صحيحة.";
-  }
-
-  if (
-    message
-      .toLowerCase()
-      .includes("email not confirmed")
-  ) {
-    return "يجب تأكيد البريد الإلكتروني أولًا.";
-  }
-
-  return "تعذر تسجيل الدخول. تحقق من البيانات وإعداد Supabase.";
-
-}
-
-
-/* =========================================================
-   ENTER APP
-   ========================================================= */
-
-async function enterAuthenticatedApp(user) {
-
-  currentUser = user;
-
-  const {
-    data: profile,
-    error
-  } = await supabase
-    .from(TABLES.profiles)
-    .select("id, email, role, display_name")
-    .eq("id", user.id)
-    .single();
-
-  if (error || !profile) {
-
-    await supabase.auth.signOut();
-
-    setAuthStatus(
-      "لا يوجد Profile مرتبط بهذا الحساب.",
-      true
-    );
-
-    return;
-  }
-
-  currentProfile = profile;
-
-  if (userRoleBadge) {
-    userRoleBadge.textContent =
-      String(profile.role || "").toUpperCase();
-  }
-
-  if (adminNavButton) {
-
-    if (profile.role === "admin") {
-      adminNavButton.classList.remove("hidden");
-    } else {
-      adminNavButton.classList.add("hidden");
-    }
-
-  }
-
-  if (authScreen) {
-    authScreen.classList.add("exit");
-  }
-
-  if (appShell) {
-    appShell.classList.remove("hidden");
-  }
-
-  await refreshAllContent();
-
-}
-
-
-/* =========================================================
-   DATA LOADING
-   ========================================================= */
-
-async function refreshAllContent() {
+async function refreshPublicContent() {
 
   await Promise.all([
     loadChapters(),
@@ -405,19 +249,221 @@ async function refreshAllContent() {
     loadSettings()
   ]);
 
+
   renderChapters();
+
   renderCategories();
+
   renderSearchResults();
 
   updateStats();
-  renderAdminLists();
-  applyContactSettings();
 
+  applyContactSettings();
 }
 
 
 /* =========================================================
-   LOAD CHAPTERS
+   ADMIN SESSION
+   ========================================================= */
+
+async function loadAdminSession(user) {
+
+  if (!supabase || !user) return;
+
+
+  const {
+    data: profile,
+    error
+  } = await supabase
+    .from(TABLES.profiles)
+    .select(
+      "id, email, role, display_name"
+    )
+    .eq("id", user.id)
+    .single();
+
+
+  /*
+   * إذا كان الحساب ليس Admin
+   * يبقى المستخدم طالبًا.
+   */
+
+  if (
+    error ||
+    !profile ||
+    profile.role !== "admin"
+  ) {
+
+    currentUser = null;
+    currentProfile = null;
+
+    adminNavButton.classList.add("hidden");
+
+    logoutButton.classList.add("hidden");
+
+    userRoleBadge.textContent = "STUDENT";
+
+    return;
+  }
+
+
+  /*
+   * Admin صحيح.
+   */
+
+  currentUser = user;
+
+  currentProfile = profile;
+
+  userRoleBadge.textContent = "ADMIN";
+
+  adminNavButton.classList.remove("hidden");
+
+  logoutButton.classList.remove("hidden");
+
+  renderAdminLists();
+}
+
+
+/* =========================================================
+   OPTIONAL ADMIN LOGIN
+   =========================================================
+   يمكن استدعاء هذه الدالة من أي صفحة Admin مستقبلًا.
+   ========================================================= */
+
+async function adminLogin(email, password) {
+
+  if (!supabase) {
+
+    showToast(
+      "Supabase غير مُعد.",
+      "error"
+    );
+
+    return false;
+  }
+
+
+  const {
+    data,
+    error
+  } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
+
+
+  if (error) {
+
+    showToast(
+      getAuthError(error),
+      "error"
+    );
+
+    return false;
+  }
+
+
+  if (!data.user) {
+
+    showToast(
+      "تعذر تسجيل الدخول.",
+      "error"
+    );
+
+    return false;
+  }
+
+
+  const {
+    data: profile,
+    error: profileError
+  } = await supabase
+    .from(TABLES.profiles)
+    .select(
+      "id, email, role, display_name"
+    )
+    .eq("id", data.user.id)
+    .single();
+
+
+  if (
+    profileError ||
+    !profile ||
+    profile.role !== "admin"
+  ) {
+
+    await supabase.auth.signOut();
+
+    showToast(
+      "هذا الحساب ليس Admin.",
+      "error"
+    );
+
+    return false;
+  }
+
+
+  await loadAdminSession(data.user);
+
+  return true;
+}
+
+
+/* =========================================================
+   AUTH HELPERS
+   ========================================================= */
+
+function setAuthStatus(
+  message,
+  error = false
+) {
+
+  if (!authStatus) return;
+
+  authStatus.textContent = message;
+
+  authStatus.style.color =
+    error
+      ? "#c98269"
+      : "#b39257";
+}
+
+
+function getAuthError(error) {
+
+  const message =
+    String(error?.message || "");
+
+
+  if (
+    message
+      .toLowerCase()
+      .includes("invalid login")
+  ) {
+
+    return "بيانات الدخول غير صحيحة.";
+  }
+
+
+  if (
+    message
+      .toLowerCase()
+      .includes("email not confirmed")
+  ) {
+
+    return "يجب تأكيد البريد الإلكتروني أولًا.";
+  }
+
+
+  return (
+    "تعذر تسجيل الدخول. تحقق من البيانات وإعداد Supabase."
+  );
+}
+
+
+/* =========================================================
+   DATA LOADING
    ========================================================= */
 
 async function loadChapters() {
@@ -435,6 +481,7 @@ async function loadChapters() {
       ascending: true
     });
 
+
   if (error) {
 
     showToast(
@@ -445,14 +492,10 @@ async function loadChapters() {
     return;
   }
 
-  chapters = data || [];
 
+  chapters = data || [];
 }
 
-
-/* =========================================================
-   LOAD QUESTIONS
-   ========================================================= */
 
 async function loadQuestions() {
 
@@ -479,6 +522,7 @@ async function loadQuestions() {
       ascending: true
     });
 
+
   if (error) {
 
     showToast(
@@ -489,14 +533,10 @@ async function loadQuestions() {
     return;
   }
 
-  questions = data || [];
 
+  questions = data || [];
 }
 
-
-/* =========================================================
-   LOAD CATEGORIES
-   ========================================================= */
 
 async function loadCategories() {
 
@@ -510,6 +550,7 @@ async function loadCategories() {
       ascending: true
     });
 
+
   if (error) {
 
     showToast(
@@ -520,14 +561,10 @@ async function loadCategories() {
     return;
   }
 
-  categories = data || [];
 
+  categories = data || [];
 }
 
-
-/* =========================================================
-   LOAD SETTINGS
-   ========================================================= */
 
 async function loadSettings() {
 
@@ -537,6 +574,7 @@ async function loadSettings() {
   } = await supabase
     .from(TABLES.settings)
     .select("*");
+
 
   if (error) {
 
@@ -548,12 +586,18 @@ async function loadSettings() {
     return;
   }
 
+
   siteSettings = {};
 
-  (data || []).forEach((row) => {
-    siteSettings[row.key] = row.value;
-  });
 
+  (data || []).forEach(
+    (row) => {
+
+      siteSettings[row.key] =
+        row.value;
+
+    }
+  );
 }
 
 
@@ -563,315 +607,367 @@ async function loadSettings() {
 
 function renderChapters() {
 
-  if (!chaptersGrid) return;
-
   chaptersGrid.innerHTML = "";
+
 
   if (!chapters.length) {
 
-    if (chaptersEmpty) {
-      chaptersEmpty.classList.remove("hidden");
-    }
+    chaptersEmpty.classList.remove(
+      "hidden"
+    );
 
     return;
   }
 
-  if (chaptersEmpty) {
-    chaptersEmpty.classList.add("hidden");
-  }
 
-  chapters.forEach((chapter, index) => {
+  chaptersEmpty.classList.add(
+    "hidden"
+  );
 
-    const count = questions.filter(
-      (q) => q.chapter_id === chapter.id
-    ).length;
 
-    const article =
-      document.createElement("article");
+  chapters.forEach(
+    (chapter, index) => {
 
-    article.className =
-      "chapter-card reveal";
+      const count =
+        questions.filter(
+          (q) =>
+            q.chapter_id === chapter.id
+        ).length;
 
-    article.innerHTML = `
-      <span class="chapter-number">
-        CHAPTER ${String(index + 1).padStart(2, "0")}
-      </span>
 
-      <h3>
-        ${escapeHTML(chapter.name)}
-      </h3>
+      const article =
+        document.createElement(
+          "article"
+        );
 
-      <p>
-        ${escapeHTML(
-          chapter.description ||
-          "قسم من الأرشيف التعليمي."
-        )}
-      </p>
 
-      <div class="chapter-meta">
+      article.className =
+        "chapter-card reveal";
 
-        <span>
-          ${count}
-          QUESTION${count === 1 ? "" : "S"}
+
+      article.innerHTML = `
+        <span class="chapter-number">
+          CHAPTER ${String(index + 1).padStart(2, "0")}
         </span>
 
-        <button
-          class="chapter-open"
-          type="button"
-        >
-          OPEN →
-        </button>
+        <h3>
+          ${escapeHTML(chapter.name)}
+        </h3>
 
-      </div>
-    `;
+        <p>
+          ${escapeHTML(
+            chapter.description ||
+            "قسم من الأرشيف التعليمي."
+          )}
+        </p>
 
-    const openButton =
-      article.querySelector(".chapter-open");
+        <div class="chapter-meta">
 
-    openButton.addEventListener(
-      "click",
-      () => openChapter(chapter.id)
-    );
+          <span>
+            ${count}
+            QUESTION${count === 1 ? "" : "S"}
+          </span>
 
-    article.addEventListener(
-      "click",
-      (event) => {
+          <button
+            class="chapter-open"
+            type="button">
+            OPEN →
+          </button>
 
-        if (
-          !event.target.closest("button")
-        ) {
-          openChapter(chapter.id);
+        </div>
+      `;
+
+
+      article
+        .querySelector(
+          ".chapter-open"
+        )
+        .addEventListener(
+          "click",
+          () => {
+            openChapter(chapter.id);
+          }
+        );
+
+
+      article.addEventListener(
+        "click",
+        (event) => {
+
+          if (
+            !event.target.closest(
+              "button"
+            )
+          ) {
+
+            openChapter(chapter.id);
+          }
+
         }
+      );
 
-      }
-    );
 
-    chaptersGrid.appendChild(article);
+      chaptersGrid.appendChild(
+        article
+      );
 
-  });
+    }
+  );
+
 
   observeReveals();
-
 }
 
-
-/* =========================================================
-   OPEN CHAPTER
-   ========================================================= */
 
 function openChapter(chapterId) {
 
   selectedChapter =
     chapters.find(
-      (chapter) => chapter.id === chapterId
+      (chapter) =>
+        chapter.id === chapterId
     ) || null;
+
 
   if (!selectedChapter) return;
 
-  if (selectedChapterTitle) {
-    selectedChapterTitle.textContent =
-      selectedChapter.name;
-  }
 
-  if (selectedChapterDescription) {
-    selectedChapterDescription.textContent =
-      selectedChapter.description || "";
-  }
+  selectedChapterTitle.textContent =
+    selectedChapter.name;
+
+
+  selectedChapterDescription.textContent =
+    selectedChapter.description || "";
+
 
   const chapterQuestions =
     questions.filter(
-      (q) => q.chapter_id === chapterId
+      (q) =>
+        q.chapter_id === chapterId
     );
 
-  renderQuestions(chapterQuestions);
 
-  if (questionsSection) {
+  renderQuestions(
+    chapterQuestions
+  );
 
-    questionsSection.classList.remove("hidden");
 
-    questionsSection.scrollIntoView({
-      behavior: "smooth",
-      block: "start"
-    });
+  questionsSection.classList.remove(
+    "hidden"
+  );
 
-  }
 
+  questionsSection.scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
 }
 
 
 /* =========================================================
-   RENDER QUESTIONS
+   QUESTIONS
    ========================================================= */
 
 function renderQuestions(list) {
 
-  if (!questionsList) return;
-
   questionsList.innerHTML = "";
+
 
   if (!list.length) {
 
-    if (questionsEmpty) {
-      questionsEmpty.classList.remove("hidden");
-    }
+    questionsEmpty.classList.remove(
+      "hidden"
+    );
 
     return;
   }
 
-  if (questionsEmpty) {
-    questionsEmpty.classList.add("hidden");
-  }
 
-  list.forEach((question, index) => {
+  questionsEmpty.classList.add(
+    "hidden"
+  );
 
-    const card =
-      document.createElement("article");
 
-    card.className = "question-card";
+  list.forEach(
+    (question, index) => {
 
-    card.id = `question-${question.id}`;
+      const card =
+        document.createElement(
+          "article"
+        );
 
-    const imageHtml = question.image_url
-      ? `
-        <div class="question-image">
-          <img
-            src="${escapeAttribute(question.image_url)}"
-            alt="${escapeAttribute(question.title)}"
-            loading="lazy"
-          >
-        </div>
-      `
-      : "";
 
-    const videoHtml =
-      buildVideoEmbed(question.video_url);
+      card.className =
+        "question-card";
 
-    card.innerHTML = `
-      <div class="question-top">
 
-        <div>
+      card.id =
+        `question-${question.id}`;
+
+
+      const imageHtml =
+        question.image_url
+          ? `
+            <div class="question-image">
+              <img
+                src="${escapeAttribute(
+                  question.image_url
+                )}"
+                alt="${escapeAttribute(
+                  question.title
+                )}"
+                loading="lazy">
+            </div>
+          `
+          : "";
+
+
+      const videoHtml =
+        buildVideoEmbed(
+          question.video_url
+        );
+
+
+      card.innerHTML = `
+        <div class="question-top">
+
+          <div>
+
+            <span class="question-index">
+              QUESTION ${String(index + 1).padStart(2, "0")}
+            </span>
+
+            <h3>
+              ${escapeHTML(
+                question.title
+              )}
+            </h3>
+
+          </div>
 
           <span class="question-index">
-            QUESTION ${String(index + 1).padStart(2, "0")}
+            ${escapeHTML(
+              question.categories?.name || ""
+            )}
           </span>
 
-          <h3>
-            ${escapeHTML(question.title)}
-          </h3>
-
         </div>
 
-        <span class="question-index">
+
+        <p class="question-text">
           ${escapeHTML(
-            question.categories?.name || ""
+            question.question
           )}
-        </span>
+        </p>
 
-      </div>
 
-      <p class="question-text">
-        ${escapeHTML(question.question)}
-      </p>
+        ${imageHtml}
 
-      ${imageHtml}
+        ${videoHtml}
 
-      ${videoHtml}
 
-      <div class="answer-block">
+        <div class="answer-block">
 
-        <button
-          class="small-action toggle-answer"
-          type="button"
-          aria-expanded="false"
-        >
-          SHOW ANSWER
-        </button>
+          <button
+            class="small-action toggle-answer"
+            type="button"
+            aria-expanded="false">
+            SHOW ANSWER
+          </button>
 
-        <div class="reveal-panel">
+          <div class="reveal-panel">
 
-          <div>
+            <div>
 
-            <p class="question-answer">
-              ${escapeHTML(
-                question.answer ||
-                "لا توجد إجابة مضافة."
-              )}
-            </p>
+              <p class="question-answer">
+                ${escapeHTML(
+                  question.answer ||
+                  "لا توجد إجابة مضافة."
+                )}
+              </p>
+
+            </div>
 
           </div>
 
         </div>
 
-      </div>
 
-      <div class="explanation-block">
+        <div class="explanation-block">
 
-        <button
-          class="small-action toggle-explanation"
-          type="button"
-          aria-expanded="false"
-        >
-          SHOW EXPLANATION
-        </button>
+          <button
+            class="small-action toggle-explanation"
+            type="button"
+            aria-expanded="false">
+            SHOW EXPLANATION
+          </button>
 
-        <div class="reveal-panel">
+          <div class="reveal-panel">
 
-          <div>
+            <div>
 
-            <p class="question-explanation">
-              ${formatRichText(
-                question.explanation ||
-                "لا يوجد شرح مضاف."
-              )}
-            </p>
+              <p class="question-explanation">
+                ${formatRichText(
+                  question.explanation ||
+                  "لا يوجد شرح مضاف."
+                )}
+              </p>
+
+            </div>
 
           </div>
 
         </div>
 
-      </div>
 
-      <div class="question-actions">
+        <div class="question-actions">
 
-        <button
-          class="small-action copy-question"
-          type="button"
-        >
-          COPY QUESTION
-        </button>
+          <button
+            class="small-action copy-question"
+            type="button">
+            COPY QUESTION
+          </button>
 
-        <button
-          class="small-action contact"
-          type="button"
-        >
-          REPORT / CONTACT
-        </button>
+          <button
+            class="small-action contact"
+            type="button">
+            REPORT / CONTACT
+          </button>
 
-      </div>
-    `;
+        </div>
+      `;
 
 
-    /* ANSWER */
+      const answerButton =
+        card.querySelector(
+          ".toggle-answer"
+        );
 
-    const answerButton =
-      card.querySelector(".toggle-answer");
 
-    const answerPanel =
-      card.querySelectorAll(".reveal-panel")[0];
+      const panels =
+        card.querySelectorAll(
+          ".reveal-panel"
+        );
 
-    if (answerButton && answerPanel) {
+
+      const answerPanel =
+        panels[0];
+
 
       answerButton.addEventListener(
         "click",
         () => {
 
           const open =
-            answerPanel.classList.toggle("open");
+            answerPanel.classList.toggle(
+              "open"
+            );
+
 
           answerButton.setAttribute(
             "aria-expanded",
             String(open)
           );
+
 
           answerButton.textContent =
             open
@@ -881,25 +977,16 @@ function renderQuestions(list) {
         }
       );
 
-    }
+
+      const explanationButton =
+        card.querySelector(
+          ".toggle-explanation"
+        );
 
 
-    /* EXPLANATION */
+      const explanationPanel =
+        panels[1];
 
-    const explanationButton =
-      card.querySelector(
-        ".toggle-explanation"
-      );
-
-    const explanationPanel =
-      card.querySelectorAll(
-        ".reveal-panel"
-      )[1];
-
-    if (
-      explanationButton &&
-      explanationPanel
-    ) {
 
       explanationButton.addEventListener(
         "click",
@@ -910,10 +997,12 @@ function renderQuestions(list) {
               "open"
             );
 
+
           explanationButton.setAttribute(
             "aria-expanded",
             String(open)
           );
+
 
           explanationButton.textContent =
             open
@@ -923,76 +1012,66 @@ function renderQuestions(list) {
         }
       );
 
-    }
+
+      card
+        .querySelector(
+          ".copy-question"
+        )
+        .addEventListener(
+          "click",
+          async () => {
+
+            const text =
+              buildCopyText(
+                question
+              );
 
 
-    /* COPY */
+            try {
 
-    const copyButton =
-      card.querySelector(".copy-question");
+              await navigator.clipboard.writeText(
+                text
+              );
 
-    if (copyButton) {
+              showToast(
+                "QUESTION COPIED",
+                "success"
+              );
 
-      copyButton.addEventListener(
-        "click",
-        async () => {
+            } catch {
 
-          const text =
-            buildCopyText(question);
+              fallbackCopy(text);
 
-          try {
-
-            await navigator.clipboard.writeText(
-              text
-            );
-
-            showToast(
-              "QUESTION COPIED",
-              "success"
-            );
-
-          } catch {
-
-            fallbackCopy(text);
+            }
 
           }
+        );
 
-        }
+
+      card
+        .querySelector(
+          ".contact"
+        )
+        .addEventListener(
+          "click",
+          () => {
+            openWhatsApp(question);
+          }
+        );
+
+
+      questionsList.appendChild(
+        card
       );
 
     }
-
-
-    /* CONTACT */
-
-    const contactButton =
-      card.querySelector(".contact");
-
-    if (contactButton) {
-
-      contactButton.addEventListener(
-        "click",
-        () => openWhatsApp(question)
-      );
-
-    }
-
-
-    questionsList.appendChild(card);
-
-  });
-
+  );
 }
 
-
-/* =========================================================
-   BUILD COPY TEXT
-   ========================================================= */
 
 function buildCopyText(question) {
 
   return [
-
     question.chapters?.name
       ? `Chapter: ${question.chapters.name}`
       : "",
@@ -1010,31 +1089,39 @@ function buildCopyText(question) {
   ]
     .filter(Boolean)
     .join("\n");
-
 }
 
-
-/* =========================================================
-   FALLBACK COPY
-   ========================================================= */
 
 function fallbackCopy(text) {
 
   const textarea =
-    document.createElement("textarea");
+    document.createElement(
+      "textarea"
+    );
+
 
   textarea.value = text;
 
-  textarea.style.position = "fixed";
-  textarea.style.opacity = "0";
+  textarea.style.position =
+    "fixed";
 
-  document.body.appendChild(textarea);
+  textarea.style.opacity =
+    "0";
+
+
+  document.body.appendChild(
+    textarea
+  );
+
 
   textarea.select();
 
+
   try {
 
-    document.execCommand("copy");
+    document.execCommand(
+      "copy"
+    );
 
     showToast(
       "QUESTION COPIED",
@@ -1050,8 +1137,8 @@ function fallbackCopy(text) {
 
   }
 
-  textarea.remove();
 
+  textarea.remove();
 }
 
 
@@ -1061,87 +1148,92 @@ function fallbackCopy(text) {
 
 function renderCategories() {
 
-  if (!categoryFilter) return;
-
   categoryFilter.innerHTML =
     `<option value="">كل التصنيفات</option>`;
 
-  categories.forEach((category) => {
 
-    const option =
-      document.createElement("option");
+  categories.forEach(
+    (category) => {
 
-    option.value = category.id;
+      const option =
+        document.createElement(
+          "option"
+        );
 
-    option.textContent =
-      category.name;
 
-    categoryFilter.appendChild(option);
+      option.value =
+        category.id;
 
-  });
 
+      option.textContent =
+        category.name;
+
+
+      categoryFilter.appendChild(
+        option
+      );
+
+    }
+  );
 }
 
 
 function renderSearchResults() {
-
-  if (
-    !searchInput ||
-    !categoryFilter ||
-    !searchResults
-  ) {
-    return;
-  }
 
   const term =
     searchInput.value
       .trim()
       .toLowerCase();
 
+
   const categoryId =
     categoryFilter.value;
+
 
   if (!term && !categoryId) {
 
     searchResults.innerHTML = "";
 
-    if (searchEmpty) {
-      searchEmpty.classList.add("hidden");
-    }
+    searchEmpty.classList.add(
+      "hidden"
+    );
 
     return;
   }
 
+
   const results =
-    questions.filter((question) => {
+    questions.filter(
+      (question) => {
 
-      const searchable = [
+        const searchable = [
+          question.title,
+          question.question,
+          question.chapters?.name,
+          question.categories?.name
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
 
-        question.title,
-        question.question,
-        question.chapters?.name,
-        question.categories?.name
 
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
+        const matchesTerm =
+          !term ||
+          searchable.includes(term);
 
-      const matchesTerm =
-        !term ||
-        searchable.includes(term);
 
-      const matchesCategory =
-        !categoryId ||
-        String(question.category_id) ===
-          String(categoryId);
+        const matchesCategory =
+          !categoryId ||
+          question.category_id ===
+            categoryId;
 
-      return (
-        matchesTerm &&
-        matchesCategory
-      );
 
-    });
+        return (
+          matchesTerm &&
+          matchesCategory
+        );
+      }
+    );
 
 
   searchResults.innerHTML =
@@ -1153,8 +1245,7 @@ function renderSearchResults() {
             type="button"
             data-question-id="${escapeAttribute(
               question.id
-            )}"
-          >
+            )}">
 
             <span>
               ${escapeHTML(
@@ -1164,17 +1255,20 @@ function renderSearchResults() {
             </span>
 
             <h3>
-              ${escapeHTML(question.title)}
+              ${escapeHTML(
+                question.title
+              )}
             </h3>
 
             <p>
               ${escapeHTML(
-                (question.question || "")
-                  .slice(0, 180)
+                (
+                  question.question ||
+                  ""
+                ).slice(0, 180)
               )}
               ${
-                (question.question || "").length >
-                180
+                question.question?.length > 180
                   ? "…"
                   : ""
               }
@@ -1190,90 +1284,83 @@ function renderSearchResults() {
     .querySelectorAll(
       "[data-question-id]"
     )
-    .forEach((button) => {
+    .forEach(
+      (button) => {
 
-      button.addEventListener(
-        "click",
-        () => {
+        button.addEventListener(
+          "click",
+          () => {
 
-          const question =
-            questions.find(
-              (q) =>
-                String(q.id) ===
-                String(
-                  button.dataset.questionId
-                )
+            const question =
+              questions.find(
+                (q) =>
+                  String(q.id) ===
+                  String(
+                    button.dataset.questionId
+                  )
+              );
+
+
+            if (!question) return;
+
+
+            openChapter(
+              question.chapter_id
             );
 
-          if (!question) return;
 
-          openChapter(
-            question.chapter_id
-          );
+            requestAnimationFrame(
+              () => {
 
-          requestAnimationFrame(() => {
+                document
+                  .getElementById(
+                    `question-${question.id}`
+                  )
+                  ?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center"
+                  });
 
-            document
-              .getElementById(
-                `question-${question.id}`
-              )
-              ?.scrollIntoView({
-                behavior: "smooth",
-                block: "center"
-              });
+              }
+            );
 
-          });
-
-        }
-      );
-
-    });
-
-
-  if (searchEmpty) {
-
-    searchEmpty.classList.toggle(
-      "hidden",
-      results.length > 0
-    );
-
-  }
-
-}
-
-
-/* SEARCH INPUT */
-
-if (searchInput) {
-
-  searchInput.addEventListener(
-    "input",
-    () => {
-
-      clearTimeout(searchTimer);
-
-      searchTimer =
-        setTimeout(
-          renderSearchResults,
-          120
+          }
         );
 
-    }
-  );
+      }
+    );
 
+
+  searchEmpty.classList.toggle(
+    "hidden",
+    results.length > 0
+  );
 }
 
 
-/* CATEGORY FILTER */
+searchInput.addEventListener(
+  "input",
+  () => {
 
-if (categoryFilter) {
+    clearTimeout(
+      searchTimer
+    );
 
-  categoryFilter.addEventListener(
-    "change",
-    renderSearchResults
-  );
 
-}
+    searchTimer =
+      setTimeout(
+        renderSearchResults,
+        120
+      );
+
+  }
+);
+
+
+categoryFilter.addEventListener(
+  "change",
+  renderSearchResults
+);
 
 
 /* =========================================================
@@ -1282,37 +1369,34 @@ if (categoryFilter) {
 
 function applyContactSettings() {
 
-  if (!contactNumberLabel) return;
-
   const number =
     normalizePhone(
-      siteSettings.whatsapp_number || ""
+      siteSettings.whatsapp_number ||
+      ""
     );
+
 
   contactNumberLabel.textContent =
     number
       ? `WhatsApp: ${number}`
       : "رقم WhatsApp غير مُعد بعد.";
-
 }
 
 
-if (generalWhatsApp) {
-
-  generalWhatsApp.addEventListener(
-    "click",
-    () => openWhatsApp()
-  );
-
-}
+generalWhatsApp.addEventListener(
+  "click",
+  () => openWhatsApp()
+);
 
 
 function openWhatsApp(question = null) {
 
   const number =
     normalizePhone(
-      siteSettings.whatsapp_number || ""
+      siteSettings.whatsapp_number ||
+      ""
     );
+
 
   if (!number) {
 
@@ -1324,9 +1408,11 @@ function openWhatsApp(question = null) {
     return;
   }
 
+
   let message =
     siteSettings.whatsapp_message ||
     "مرحبًا، أحتاج إلى المساعدة في موقع Question Archive.";
+
 
   if (question) {
 
@@ -1337,20 +1423,20 @@ function openWhatsApp(question = null) {
       }\nQuestion: ${
         question.title
       }`;
-
   }
+
 
   const url =
     `https://wa.me/${number}?text=${encodeURIComponent(
       message
     )}`;
 
+
   window.open(
     url,
     "_blank",
     "noopener,noreferrer"
   );
-
 }
 
 
@@ -1358,7 +1444,6 @@ function normalizePhone(value) {
 
   return String(value)
     .replace(/[^\d]/g, "");
-
 }
 
 
@@ -1366,79 +1451,108 @@ function normalizePhone(value) {
    ADMIN DASHBOARD
    ========================================================= */
 
-if (adminNavButton) {
+adminNavButton.addEventListener(
+  "click",
+  async () => {
 
-  adminNavButton.addEventListener(
-    "click",
-    async () => {
+    if (
+      currentProfile?.role !==
+      "admin"
+    ) {
 
-      if (currentProfile?.role !== "admin") {
+      showToast(
+        "غير مصرح لك بالدخول.",
+        "error"
+      );
 
-        showToast(
-          "غير مصرح لك بالدخول.",
-          "error"
-        );
-
-        return;
-      }
-
-      await refreshAllContent();
-
-      openAdminPanel();
-
+      return;
     }
-  );
-
-}
 
 
-if (closeAdmin) {
+    await refreshPublicContent();
 
-  closeAdmin.addEventListener(
-    "click",
-    closeAdminPanel
-  );
+    renderAdminLists();
 
-}
+    openAdminPanel();
+
+  }
+);
+
+
+logoutButton.addEventListener(
+  "click",
+  async () => {
+
+    if (!supabase) return;
+
+    await supabase.auth.signOut();
+
+    closeAdminPanel();
+
+    showToast(
+      "تم تسجيل الخروج.",
+      "success"
+    );
+
+  }
+);
+
+
+closeAdmin.addEventListener(
+  "click",
+  closeAdminPanel
+);
 
 
 function openAdminPanel() {
 
-  if (!adminOverlay) return;
+  if (
+    currentProfile?.role !==
+    "admin"
+  ) return;
 
-  adminOverlay.classList.remove("hidden");
+
+  adminOverlay.classList.remove(
+    "hidden"
+  );
+
 
   adminOverlay.setAttribute(
     "aria-hidden",
     "false"
   );
 
+
   document.body.classList.add(
     "modal-open"
   );
 
-  showAdminTab("overview");
 
+  showAdminTab(
+    "overview"
+  );
 }
 
 
 function closeAdminPanel() {
 
-  if (!adminOverlay) return;
+  adminOverlay.classList.add(
+    "hidden"
+  );
 
-  adminOverlay.classList.add("hidden");
 
   adminOverlay.setAttribute(
     "aria-hidden",
     "true"
   );
 
+
   document.body.classList.remove(
     "modal-open"
   );
 
-  closeEditorModal();
 
+  closeEditorModal();
 }
 
 
@@ -1446,74 +1560,65 @@ function closeAdminPanel() {
    ADMIN TABS
    ========================================================= */
 
-$$(".admin-tab").forEach((tab) => {
+$$(".admin-tab").forEach(
+  (tab) => {
 
-  tab.addEventListener(
-    "click",
-    () => {
-      showAdminTab(
-        tab.dataset.adminTab
-      );
-    }
-  );
+    tab.addEventListener(
+      "click",
+      () => {
 
-});
+        showAdminTab(
+          tab.dataset.adminTab
+        );
+
+      }
+    );
+
+  }
+);
 
 
 function showAdminTab(tabName) {
 
-  $$(".admin-tab").forEach((tab) => {
+  $$(".admin-tab").forEach(
+    (tab) => {
 
-    tab.classList.toggle(
-      "active",
-      tab.dataset.adminTab === tabName
-    );
+      tab.classList.toggle(
+        "active",
+        tab.dataset.adminTab ===
+          tabName
+      );
 
-  });
+    }
+  );
 
 
-  $$(".admin-panel").forEach((panel) => {
+  $$(".admin-panel").forEach(
+    (panel) => {
 
-    panel.classList.toggle(
-      "active",
-      panel.dataset.adminPanel === tabName
-    );
+      panel.classList.toggle(
+        "active",
+        panel.dataset.adminPanel ===
+          tabName
+      );
 
-  });
-
+    }
+  );
 }
 
 
-/* =========================================================
-   STATS
-   ========================================================= */
-
 function updateStats() {
 
-  const statChapters =
-    $("#statChapters");
+  $("#statChapters").textContent =
+    chapters.length;
 
-  const statQuestions =
-    $("#statQuestions");
 
-  const statCategories =
-    $("#statCategories");
+  $("#statQuestions").textContent =
+    questions.length;
 
-  if (statChapters) {
-    statChapters.textContent =
-      chapters.length;
-  }
 
-  if (statQuestions) {
-    statQuestions.textContent =
-      questions.length;
-  }
-
-  if (statCategories) {
-    statCategories.textContent =
-      categories.length;
-  }
-
+  $("#statCategories").textContent =
+    categories.length;
 }
 
 
@@ -1524,31 +1629,30 @@ function updateStats() {
 function renderAdminLists() {
 
   renderAdminChapters();
-  renderAdminQuestions();
-  renderAdminCategories();
-  fillContactForm();
 
+  renderAdminQuestions();
+
+  renderAdminCategories();
+
+  fillContactForm();
 }
 
-
-/* =========================================================
-   ADMIN CHAPTERS
-   ========================================================= */
 
 function renderAdminChapters() {
 
   const container =
     $("#adminChaptersList");
 
+
   if (!container) return;
+
 
   if (!chapters.length) {
 
     container.innerHTML = `
       <div class="admin-note">
         <p>
-          لا توجد Chapters.
-          استخدم ADD CHAPTER لإنشاء أول فصل.
+          لا توجد Chapters. استخدم ADD CHAPTER لإنشاء أول فصل.
         </p>
       </div>
     `;
@@ -1556,10 +1660,12 @@ function renderAdminChapters() {
     return;
   }
 
+
   container.innerHTML =
     chapters
       .map(
         (chapter, index) => `
+
           <div class="admin-row">
 
             <div class="admin-row-main">
@@ -1588,6 +1694,7 @@ function renderAdminChapters() {
 
             </div>
 
+
             <div class="admin-row-actions">
 
               <button
@@ -1596,8 +1703,7 @@ function renderAdminChapters() {
                 data-action="edit-chapter"
                 data-id="${escapeAttribute(
                   chapter.id
-                )}"
-              >
+                )}">
                 EDIT
               </button>
 
@@ -1607,8 +1713,7 @@ function renderAdminChapters() {
                 data-action="delete-chapter"
                 data-id="${escapeAttribute(
                   chapter.id
-                )}"
-              >
+                )}">
                 DELETE
               </button>
 
@@ -1620,29 +1725,27 @@ function renderAdminChapters() {
       .join("");
 
 
-  bindAdminActions(container);
-
+  bindAdminActions(
+    container
+  );
 }
 
-
-/* =========================================================
-   ADMIN QUESTIONS
-   ========================================================= */
 
 function renderAdminQuestions() {
 
   const container =
     $("#adminQuestionsList");
 
+
   if (!container) return;
+
 
   if (!questions.length) {
 
     container.innerHTML = `
       <div class="admin-note">
         <p>
-          لا توجد أسئلة.
-          استخدم ADD QUESTION لإنشاء أول سؤال.
+          لا توجد أسئلة. استخدم ADD QUESTION لإنشاء أول سؤال.
         </p>
       </div>
     `;
@@ -1650,10 +1753,12 @@ function renderAdminQuestions() {
     return;
   }
 
+
   container.innerHTML =
     questions
       .map(
         (question) => `
+
           <div class="admin-row">
 
             <div class="admin-row-main">
@@ -1669,9 +1774,7 @@ function renderAdminQuestions() {
                   question.chapters?.name ||
                   "No chapter"
                 )}
-
                 •
-
                 ${escapeHTML(
                   question.categories?.name ||
                   "No category"
@@ -1679,6 +1782,7 @@ function renderAdminQuestions() {
               </span>
 
             </div>
+
 
             <div class="admin-row-actions">
 
@@ -1688,8 +1792,7 @@ function renderAdminQuestions() {
                 data-action="edit-question"
                 data-id="${escapeAttribute(
                   question.id
-                )}"
-              >
+                )}">
                 EDIT
               </button>
 
@@ -1699,8 +1802,7 @@ function renderAdminQuestions() {
                 data-action="delete-question"
                 data-id="${escapeAttribute(
                   question.id
-                )}"
-              >
+                )}">
                 DELETE
               </button>
 
@@ -1712,21 +1814,20 @@ function renderAdminQuestions() {
       .join("");
 
 
-  bindAdminActions(container);
-
+  bindAdminActions(
+    container
+  );
 }
 
-
-/* =========================================================
-   ADMIN CATEGORIES
-   ========================================================= */
 
 function renderAdminCategories() {
 
   const container =
     $("#adminCategoriesList");
 
+
   if (!container) return;
+
 
   if (!categories.length) {
 
@@ -1741,10 +1842,12 @@ function renderAdminCategories() {
     return;
   }
 
+
   container.innerHTML =
     categories
       .map(
         (category) => `
+
           <div class="admin-row">
 
             <div class="admin-row-main">
@@ -1759,14 +1862,15 @@ function renderAdminCategories() {
                 ${
                   questions.filter(
                     (q) =>
-                      String(q.category_id) ===
-                      String(category.id)
+                      q.category_id ===
+                      category.id
                   ).length
                 }
                 questions
               </span>
 
             </div>
+
 
             <div class="admin-row-actions">
 
@@ -1776,8 +1880,7 @@ function renderAdminCategories() {
                 data-action="edit-category"
                 data-id="${escapeAttribute(
                   category.id
-                )}"
-              >
+                )}">
                 EDIT
               </button>
 
@@ -1787,8 +1890,7 @@ function renderAdminCategories() {
                 data-action="delete-category"
                 data-id="${escapeAttribute(
                   category.id
-                )}"
-              >
+                )}">
                 DELETE
               </button>
 
@@ -1800,35 +1902,37 @@ function renderAdminCategories() {
       .join("");
 
 
-  bindAdminActions(container);
-
+  bindAdminActions(
+    container
+  );
 }
 
 
-/* =========================================================
-   ADMIN ACTION BINDING
-   ========================================================= */
-
-function bindAdminActions(container) {
+function bindAdminActions(
+  container
+) {
 
   container
-    .querySelectorAll("[data-action]")
-    .forEach((button) => {
+    .querySelectorAll(
+      "[data-action]"
+    )
+    .forEach(
+      (button) => {
 
-      button.addEventListener(
-        "click",
-        () => {
+        button.addEventListener(
+          "click",
+          () => {
 
-          handleAdminAction(
-            button.dataset.action,
-            button.dataset.id
-          );
+            handleAdminAction(
+              button.dataset.action,
+              button.dataset.id
+            );
 
-        }
-      );
+          }
+        );
 
-    });
-
+      }
+    );
 }
 
 
@@ -1837,97 +1941,113 @@ async function handleAdminAction(
   id
 ) {
 
-  if (action === "edit-chapter") {
+  if (
+    currentProfile?.role !==
+    "admin"
+  ) {
+
+    showToast(
+      "غير مصرح لك.",
+      "error"
+    );
+
+    return;
+  }
+
+
+  if (
+    action ===
+    "edit-chapter"
+  ) {
+
     openChapterEditor(id);
   }
 
-  if (action === "delete-chapter") {
+
+  if (
+    action ===
+    "delete-chapter"
+  ) {
+
     await deleteChapter(id);
   }
 
-  if (action === "edit-question") {
+
+  if (
+    action ===
+    "edit-question"
+  ) {
+
     openQuestionEditor(id);
   }
 
-  if (action === "delete-question") {
+
+  if (
+    action ===
+    "delete-question"
+  ) {
+
     await deleteQuestion(id);
   }
 
-  if (action === "edit-category") {
+
+  if (
+    action ===
+    "edit-category"
+  ) {
+
     openCategoryEditor(id);
   }
 
-  if (action === "delete-category") {
+
+  if (
+    action ===
+    "delete-category"
+  ) {
+
     await deleteCategory(id);
   }
-
 }
 
 
 /* =========================================================
-   ADD BUTTONS
+   CHAPTER CRUD
    ========================================================= */
 
-const addChapterButton =
-  $("#addChapterButton");
-
-const addQuestionButton =
-  $("#addQuestionButton");
-
-const addCategoryButton =
-  $("#addCategoryButton");
-
-
-if (addChapterButton) {
-
-  addChapterButton.addEventListener(
+$("#addChapterButton")
+  .addEventListener(
     "click",
     () => openChapterEditor()
   );
 
-}
 
+function openChapterEditor(
+  id = null
+) {
 
-if (addQuestionButton) {
+  if (
+    currentProfile?.role !==
+    "admin"
+  ) return;
 
-  addQuestionButton.addEventListener(
-    "click",
-    () => openQuestionEditor()
-  );
-
-}
-
-
-if (addCategoryButton) {
-
-  addCategoryButton.addEventListener(
-    "click",
-    () => openCategoryEditor()
-  );
-
-}
-
-
-/* =========================================================
-   CHAPTER EDITOR
-   ========================================================= */
-
-function openChapterEditor(id = null) {
 
   editorType = "chapter";
+
   editingId = id;
+
 
   const item =
     id
       ? chapters.find(
           (chapter) =>
-            String(chapter.id) ===
-            String(id)
+            chapter.id === id
         )
       : null;
 
+
   editorKicker.textContent =
     "CHAPTER EDITOR";
+
 
   editorTitle.textContent =
     id
@@ -1948,8 +2068,7 @@ function openChapterEditor(id = null) {
       value="${escapeAttribute(
         item?.name || ""
       )}"
-      placeholder="Chapter 01"
-    >
+      placeholder="Chapter 01">
 
 
     <label for="editorDescription">
@@ -1977,8 +2096,7 @@ function openChapterEditor(id = null) {
       value="${escapeAttribute(
         item?.cover_image_url || ""
       )}"
-      placeholder="https://..."
-    >
+      placeholder="https://...">
 
 
     <label for="editorOrder">
@@ -1995,52 +2113,76 @@ function openChapterEditor(id = null) {
         item?.sort_order ??
         chapters.length + 1
       }"
-      required
-    >
+      required>
 
 
     <button
       class="archive-button primary"
-      type="submit"
-    >
-      ${id ? "SAVE CHANGES" : "SAVE CHAPTER"}
-    </button>
+      type="submit">
 
+      ${
+        id
+          ? "SAVE CHANGES"
+          : "SAVE CHAPTER"
+      }
+
+    </button>
   `;
 
+
   openEditorModal();
-
 }
 
 
-/* =========================================================
-   EDITOR SUBMIT
-   ========================================================= */
+editorForm.addEventListener(
+  "submit",
+  async (event) => {
 
-if (editorForm) {
+    event.preventDefault();
 
-  editorForm.addEventListener(
-    "submit",
-    async (event) => {
 
-      event.preventDefault();
+    if (
+      currentProfile?.role !==
+      "admin"
+    ) {
 
-      if (editorType === "chapter") {
-        await saveChapter();
-      }
+      showToast(
+        "غير مصرح لك.",
+        "error"
+      );
 
-      if (editorType === "question") {
-        await saveQuestion();
-      }
-
-      if (editorType === "category") {
-        await saveCategory();
-      }
-
+      return;
     }
-  );
 
-}
+
+    if (
+      editorType ===
+      "chapter"
+    ) {
+
+      await saveChapter();
+    }
+
+
+    if (
+      editorType ===
+      "question"
+    ) {
+
+      await saveQuestion();
+    }
+
+
+    if (
+      editorType ===
+      "category"
+    ) {
+
+      await saveCategory();
+    }
+
+  }
+);
 
 
 /* =========================================================
@@ -2050,28 +2192,36 @@ if (editorForm) {
 async function saveChapter() {
 
   const form =
-    new FormData(editorForm);
+    new FormData(
+      editorForm
+    );
+
 
   const payload = {
 
     name:
       String(
-        form.get("name") || ""
+        form.get("name")
       ).trim(),
 
     description:
       String(
-        form.get("description") || ""
+        form.get("description") ||
+        ""
       ).trim(),
 
     cover_image_url:
       String(
-        form.get("cover_image_url") || ""
+        form.get(
+          "cover_image_url"
+        ) || ""
       ).trim() || null,
 
     sort_order:
       Number(
-        form.get("sort_order") || 0
+        form.get(
+          "sort_order"
+        ) || 0
       )
 
   };
@@ -2095,15 +2245,22 @@ async function saveChapter() {
 
     response =
       await supabase
-        .from(TABLES.chapters)
+        .from(
+          TABLES.chapters
+        )
         .update(payload)
-        .eq("id", editingId);
+        .eq(
+          "id",
+          editingId
+        );
 
   } else {
 
     response =
       await supabase
-        .from(TABLES.chapters)
+        .from(
+          TABLES.chapters
+        )
         .insert({
           ...payload,
           created_by:
@@ -2126,9 +2283,14 @@ async function saveChapter() {
 
   closeEditorModal();
 
-  await refreshAllContent();
+  await refreshPublicContent();
 
-  showAdminTab("chapters");
+  renderAdminLists();
+
+  showAdminTab(
+    "chapters"
+  );
+
 
   showToast(
     editingId
@@ -2136,7 +2298,6 @@ async function saveChapter() {
       : "CHAPTER SAVED",
     "success"
   );
-
 }
 
 
@@ -2146,12 +2307,18 @@ async function saveChapter() {
 
 async function deleteChapter(id) {
 
+  if (
+    currentProfile?.role !==
+    "admin"
+  ) return;
+
+
   const chapter =
     chapters.find(
       (item) =>
-        String(item.id) ===
-        String(id)
+        item.id === id
     );
+
 
   if (!chapter) return;
 
@@ -2161,6 +2328,7 @@ async function deleteChapter(id) {
       `حذف Chapter "${chapter.name}"؟ سيتم حذف الأسئلة المرتبطة به أيضًا.`
     )
   ) {
+
     return;
   }
 
@@ -2168,9 +2336,14 @@ async function deleteChapter(id) {
   const {
     error
   } = await supabase
-    .from(TABLES.chapters)
+    .from(
+      TABLES.chapters
+    )
     .delete()
-    .eq("id", id);
+    .eq(
+      "id",
+      id
+    );
 
 
   if (error) {
@@ -2185,37 +2358,51 @@ async function deleteChapter(id) {
 
 
   if (
-    selectedChapter &&
-    String(selectedChapter.id) ===
-      String(id)
+    selectedChapter?.id ===
+    id
   ) {
 
-    selectedChapter = null;
+    selectedChapter =
+      null;
 
-    if (questionsSection) {
-      questionsSection.classList.add(
-        "hidden"
-      );
-    }
-
+    questionsSection.classList.add(
+      "hidden"
+    );
   }
 
 
-  await refreshAllContent();
+  await refreshPublicContent();
+
+  renderAdminLists();
+
 
   showToast(
     "CHAPTER DELETED",
     "success"
   );
-
 }
 
 
 /* =========================================================
-   QUESTION EDITOR
+   QUESTION CRUD
    ========================================================= */
 
-function openQuestionEditor(id = null) {
+$("#addQuestionButton")
+  .addEventListener(
+    "click",
+    () => openQuestionEditor()
+  );
+
+
+function openQuestionEditor(
+  id = null
+) {
+
+  if (
+    currentProfile?.role !==
+    "admin"
+  ) return;
+
 
   if (!chapters.length) {
 
@@ -2224,13 +2411,16 @@ function openQuestionEditor(id = null) {
       "error"
     );
 
-    showAdminTab("chapters");
+    showAdminTab(
+      "chapters"
+    );
 
     return;
   }
 
 
   editorType = "question";
+
   editingId = id;
 
 
@@ -2238,8 +2428,7 @@ function openQuestionEditor(id = null) {
     id
       ? questions.find(
           (question) =>
-            String(question.id) ===
-            String(id)
+            question.id === id
         )
       : null;
 
@@ -2247,23 +2436,11 @@ function openQuestionEditor(id = null) {
   editorKicker.textContent =
     "QUESTION EDITOR";
 
+
   editorTitle.textContent =
     id
       ? "EDIT QUESTION"
       : "ADD NEW QUESTION";
-
-
-  const defaultChapter =
-    item?.chapter_id ||
-    chapters[0].id;
-
-
-  const questionOrder =
-    questions.filter(
-      (q) =>
-        String(q.chapter_id) ===
-        String(defaultChapter)
-    ).length + 1;
 
 
   editorForm.innerHTML = `
@@ -2275,26 +2452,27 @@ function openQuestionEditor(id = null) {
     <select
       id="editorChapter"
       name="chapter_id"
-      required
-    >
+      required>
 
       ${chapters
         .map(
           (chapter) => `
+
             <option
               value="${escapeAttribute(
                 chapter.id
               )}"
               ${
-                String(item?.chapter_id) ===
-                String(chapter.id)
+                item?.chapter_id ===
+                chapter.id
                   ? "selected"
                   : ""
-              }
-            >
+              }>
+
               ${escapeHTML(
                 chapter.name
               )}
+
             </option>
           `
         )
@@ -2314,8 +2492,7 @@ function openQuestionEditor(id = null) {
       value="${escapeAttribute(
         item?.title || ""
       )}"
-      placeholder="Question 01"
-    >
+      placeholder="Question 01">
 
 
     <label for="editorQuestionText">
@@ -2367,8 +2544,7 @@ function openQuestionEditor(id = null) {
 
     <select
       id="editorCategory"
-      name="category_id"
-    >
+      name="category_id">
 
       <option value="">
         بدون تصنيف
@@ -2377,22 +2553,22 @@ function openQuestionEditor(id = null) {
       ${categories
         .map(
           (category) => `
+
             <option
               value="${escapeAttribute(
                 category.id
               )}"
               ${
-                String(
-                  item?.category_id
-                ) ===
-                String(category.id)
+                item?.category_id ===
+                category.id
                   ? "selected"
                   : ""
-              }
-            >
+              }>
+
               ${escapeHTML(
                 category.name
               )}
+
             </option>
           `
         )
@@ -2409,12 +2585,11 @@ function openQuestionEditor(id = null) {
       id="editorImageFile"
       name="image_file"
       type="file"
-      accept="image/*"
-    >
+      accept="image/*">
+
 
     <p class="file-note">
-      الصورة ترفع إلى Supabase Storage.
-      إذا لم تختر صورة جديدة، تبقى الصورة الحالية.
+      الصورة ترفع إلى Supabase Storage. إذا لم تختر صورة جديدة، تبقى الصورة الحالية.
     </p>
 
 
@@ -2443,8 +2618,7 @@ function openQuestionEditor(id = null) {
       value="${escapeAttribute(
         item?.image_url || ""
       )}"
-      placeholder="https://..."
-    >
+      placeholder="https://...">
 
 
     <label for="editorVideoUrl">
@@ -2458,8 +2632,7 @@ function openQuestionEditor(id = null) {
       value="${escapeAttribute(
         item?.video_url || ""
       )}"
-      placeholder="https://www.youtube.com/embed/..."
-    >
+      placeholder="https://www.youtube.com/embed/...">
 
 
     <label for="editorVideoFile">
@@ -2470,8 +2643,8 @@ function openQuestionEditor(id = null) {
       id="editorVideoFile"
       name="video_file"
       type="file"
-      accept="video/*"
-    >
+      accept="video/*">
+
 
     <p class="file-note">
       لملفات الفيديو الكبيرة، يفضّل استخدام رابط فيديو قابل للتضمين بدل رفع ملف ضخم.
@@ -2490,24 +2663,33 @@ function openQuestionEditor(id = null) {
       step="1"
       value="${
         item?.sort_order ??
-        questionOrder
+        questions.filter(
+          (q) =>
+            q.chapter_id ===
+            (
+              item?.chapter_id ||
+              chapters[0].id
+            )
+        ).length + 1
       }"
-      required
-    >
+      required>
 
 
     <button
       class="archive-button primary"
-      type="submit"
-    >
-      ${id ? "SAVE CHANGES" : "SAVE QUESTION"}
-    </button>
+      type="submit">
 
+      ${
+        id
+          ? "SAVE CHANGES"
+          : "SAVE QUESTION"
+      }
+
+    </button>
   `;
 
 
   openEditorModal();
-
 }
 
 
@@ -2518,24 +2700,32 @@ function openQuestionEditor(id = null) {
 async function saveQuestion() {
 
   const form =
-    new FormData(editorForm);
+    new FormData(
+      editorForm
+    );
 
 
   const chapterId =
     String(
-      form.get("chapter_id") || ""
+      form.get(
+        "chapter_id"
+      ) || ""
     );
 
 
   const title =
     String(
-      form.get("title") || ""
+      form.get(
+        "title"
+      ) || ""
     ).trim();
 
 
   const questionText =
     String(
-      form.get("question") || ""
+      form.get(
+        "question"
+      ) || ""
     ).trim();
 
 
@@ -2558,15 +2748,16 @@ async function saveQuestion() {
     editingId
       ? questions.find(
           (q) =>
-            String(q.id) ===
-            String(editingId)
+            q.id === editingId
         )
       : null;
 
 
   let imageUrl =
     String(
-      form.get("image_url") || ""
+      form.get(
+        "image_url"
+      ) || ""
     ).trim() ||
     current?.image_url ||
     null;
@@ -2574,16 +2765,19 @@ async function saveQuestion() {
 
   let videoUrl =
     String(
-      form.get("video_url") || ""
+      form.get(
+        "video_url"
+      ) || ""
     ).trim() ||
     current?.video_url ||
     null;
 
 
-  /* IMAGE UPLOAD */
-
   const imageFile =
-    form.get("image_file");
+    form.get(
+      "image_file"
+    );
+
 
   if (
     imageFile instanceof File &&
@@ -2596,17 +2790,19 @@ async function saveQuestion() {
         "images"
       );
 
+
     if (!result) return;
 
-    imageUrl = result;
 
+    imageUrl = result;
   }
 
 
-  /* VIDEO UPLOAD */
-
   const videoFile =
-    form.get("video_file");
+    form.get(
+      "video_file"
+    );
+
 
   if (
     videoFile instanceof File &&
@@ -2619,10 +2815,11 @@ async function saveQuestion() {
         "videos"
       );
 
+
     if (!result) return;
 
-    videoUrl = result;
 
+    videoUrl = result;
   }
 
 
@@ -2633,7 +2830,9 @@ async function saveQuestion() {
 
     category_id:
       String(
-        form.get("category_id") || ""
+        form.get(
+          "category_id"
+        ) || ""
       ) || null,
 
     title,
@@ -2643,12 +2842,16 @@ async function saveQuestion() {
 
     answer:
       String(
-        form.get("answer") || ""
+        form.get(
+          "answer"
+        ) || ""
       ).trim(),
 
     explanation:
       String(
-        form.get("explanation") || ""
+        form.get(
+          "explanation"
+        ) || ""
       ).trim(),
 
     image_url:
@@ -2659,7 +2862,9 @@ async function saveQuestion() {
 
     sort_order:
       Number(
-        form.get("sort_order") || 0
+        form.get(
+          "sort_order"
+        ) || 0
       )
 
   };
@@ -2672,15 +2877,24 @@ async function saveQuestion() {
 
     response =
       await supabase
-        .from(TABLES.questions)
-        .update(payload)
-        .eq("id", editingId);
+        .from(
+          TABLES.questions
+        )
+        .update(
+          payload
+        )
+        .eq(
+          "id",
+          editingId
+        );
 
   } else {
 
     response =
       await supabase
-        .from(TABLES.questions)
+        .from(
+          TABLES.questions
+        )
         .insert({
           ...payload,
           created_by:
@@ -2703,21 +2917,25 @@ async function saveQuestion() {
 
   closeEditorModal();
 
-  await refreshAllContent();
+  await refreshPublicContent();
+
+  renderAdminLists();
 
 
   if (
-    selectedChapter &&
-    String(selectedChapter.id) ===
-      String(chapterId)
+    selectedChapter?.id ===
+    chapterId
   ) {
 
-    openChapter(chapterId);
-
+    openChapter(
+      chapterId
+    );
   }
 
 
-  showAdminTab("questions");
+  showAdminTab(
+    "questions"
+  );
 
 
   showToast(
@@ -2726,12 +2944,11 @@ async function saveQuestion() {
       : "QUESTION SAVED",
     "success"
   );
-
 }
 
 
 /* =========================================================
-   UPLOAD MEDIA
+   STORAGE
    ========================================================= */
 
 async function uploadMedia(
@@ -2740,7 +2957,9 @@ async function uploadMedia(
 ) {
 
   const safeName =
-    sanitizeFileName(file.name);
+    sanitizeFileName(
+      file.name
+    );
 
 
   const path =
@@ -2750,7 +2969,9 @@ async function uploadMedia(
   const {
     error
   } = await supabase.storage
-    .from(STORAGE_BUCKET)
+    .from(
+      STORAGE_BUCKET
+    )
     .upload(
       path,
       file,
@@ -2776,12 +2997,15 @@ async function uploadMedia(
     data
   } =
     supabase.storage
-      .from(STORAGE_BUCKET)
-      .getPublicUrl(path);
+      .from(
+        STORAGE_BUCKET
+      )
+      .getPublicUrl(
+        path
+      );
 
 
   return data.publicUrl;
-
 }
 
 
@@ -2791,12 +3015,18 @@ async function uploadMedia(
 
 async function deleteQuestion(id) {
 
+  if (
+    currentProfile?.role !==
+    "admin"
+  ) return;
+
+
   const question =
     questions.find(
       (item) =>
-        String(item.id) ===
-        String(id)
+        item.id === id
     );
+
 
   if (!question) return;
 
@@ -2806,6 +3036,7 @@ async function deleteQuestion(id) {
       `حذف السؤال "${question.title}"؟`
     )
   ) {
+
     return;
   }
 
@@ -2813,9 +3044,14 @@ async function deleteQuestion(id) {
   const {
     error
   } = await supabase
-    .from(TABLES.questions)
+    .from(
+      TABLES.questions
+    )
     .delete()
-    .eq("id", id);
+    .eq(
+      "id",
+      id
+    );
 
 
   if (error) {
@@ -2829,10 +3065,13 @@ async function deleteQuestion(id) {
   }
 
 
-  await refreshAllContent();
+  await refreshPublicContent();
+
+  renderAdminLists();
 
 
   if (selectedChapter?.id) {
+
     openChapter(
       selectedChapter.id
     );
@@ -2843,7 +3082,6 @@ async function deleteQuestion(id) {
     "QUESTION DELETED",
     "success"
   );
-
 }
 
 
@@ -2851,9 +3089,25 @@ async function deleteQuestion(id) {
    CATEGORY CRUD
    ========================================================= */
 
-function openCategoryEditor(id = null) {
+$("#addCategoryButton")
+  .addEventListener(
+    "click",
+    () => openCategoryEditor()
+  );
+
+
+function openCategoryEditor(
+  id = null
+) {
+
+  if (
+    currentProfile?.role !==
+    "admin"
+  ) return;
+
 
   editorType = "category";
+
   editingId = id;
 
 
@@ -2861,14 +3115,14 @@ function openCategoryEditor(id = null) {
     id
       ? categories.find(
           (category) =>
-            String(category.id) ===
-            String(id)
+            category.id === id
         )
       : null;
 
 
   editorKicker.textContent =
     "CATEGORY EDITOR";
+
 
   editorTitle.textContent =
     id
@@ -2889,8 +3143,7 @@ function openCategoryEditor(id = null) {
       value="${escapeAttribute(
         item?.name || ""
       )}"
-      placeholder="Cairo Japanese"
-    >
+      placeholder="Cairo Japanese">
 
 
     <label for="editorCategoryDescription">
@@ -2909,16 +3162,19 @@ function openCategoryEditor(id = null) {
 
     <button
       class="archive-button primary"
-      type="submit"
-    >
-      ${id ? "SAVE CHANGES" : "SAVE CATEGORY"}
-    </button>
+      type="submit">
 
+      ${
+        id
+          ? "SAVE CHANGES"
+          : "SAVE CATEGORY"
+      }
+
+    </button>
   `;
 
 
   openEditorModal();
-
 }
 
 
@@ -2929,12 +3185,16 @@ function openCategoryEditor(id = null) {
 async function saveCategory() {
 
   const form =
-    new FormData(editorForm);
+    new FormData(
+      editorForm
+    );
 
 
   const name =
     String(
-      form.get("name") || ""
+      form.get(
+        "name"
+      ) || ""
     ).trim();
 
 
@@ -2955,7 +3215,9 @@ async function saveCategory() {
 
     description:
       String(
-        form.get("description") || ""
+        form.get(
+          "description"
+        ) || ""
       ).trim()
 
   };
@@ -2968,15 +3230,24 @@ async function saveCategory() {
 
     response =
       await supabase
-        .from(TABLES.categories)
-        .update(payload)
-        .eq("id", editingId);
+        .from(
+          TABLES.categories
+        )
+        .update(
+          payload
+        )
+        .eq(
+          "id",
+          editingId
+        );
 
   } else {
 
     response =
       await supabase
-        .from(TABLES.categories)
+        .from(
+          TABLES.categories
+        )
         .insert({
           ...payload,
           created_by:
@@ -2999,9 +3270,13 @@ async function saveCategory() {
 
   closeEditorModal();
 
-  await refreshAllContent();
+  await refreshPublicContent();
 
-  showAdminTab("categories");
+  renderAdminLists();
+
+  showAdminTab(
+    "categories"
+  );
 
 
   showToast(
@@ -3010,7 +3285,6 @@ async function saveCategory() {
       : "CATEGORY SAVED",
     "success"
   );
-
 }
 
 
@@ -3020,12 +3294,18 @@ async function saveCategory() {
 
 async function deleteCategory(id) {
 
+  if (
+    currentProfile?.role !==
+    "admin"
+  ) return;
+
+
   const category =
     categories.find(
       (item) =>
-        String(item.id) ===
-        String(id)
+        item.id === id
     );
+
 
   if (!category) return;
 
@@ -3035,6 +3315,7 @@ async function deleteCategory(id) {
       `حذف التصنيف "${category.name}"؟`
     )
   ) {
+
     return;
   }
 
@@ -3042,9 +3323,14 @@ async function deleteCategory(id) {
   const {
     error
   } = await supabase
-    .from(TABLES.categories)
+    .from(
+      TABLES.categories
+    )
     .delete()
-    .eq("id", id);
+    .eq(
+      "id",
+      id
+    );
 
 
   if (error) {
@@ -3058,14 +3344,15 @@ async function deleteCategory(id) {
   }
 
 
-  await refreshAllContent();
+  await refreshPublicContent();
+
+  renderAdminLists();
 
 
   showToast(
     "CATEGORY DELETED",
     "success"
   );
-
 }
 
 
@@ -3075,90 +3362,114 @@ async function deleteCategory(id) {
 
 function fillContactForm() {
 
-  const whatsappNumber =
+  const numberInput =
     $("#whatsappNumber");
 
-  const whatsappTemplate =
+  const messageInput =
     $("#whatsappTemplate");
 
-  if (whatsappNumber) {
 
-    whatsappNumber.value =
+  if (numberInput) {
+
+    numberInput.value =
       siteSettings.whatsapp_number ||
       "";
-
   }
 
-  if (whatsappTemplate) {
 
-    whatsappTemplate.value =
+  if (messageInput) {
+
+    messageInput.value =
       siteSettings.whatsapp_message ||
       "مرحبًا، أحتاج إلى المساعدة في موقع Question Archive.";
-
   }
-
 }
 
 
-const contactSettingsForm =
-  $("#contactSettingsForm");
-
-
-if (contactSettingsForm) {
-
-  contactSettingsForm.addEventListener(
+$("#contactSettingsForm")
+  .addEventListener(
     "submit",
     async (event) => {
 
       event.preventDefault();
 
 
+      if (
+        currentProfile?.role !==
+        "admin"
+      ) {
+
+        showToast(
+          "غير مصرح لك.",
+          "error"
+        );
+
+        return;
+      }
+
+
       const number =
         $("#whatsappNumber")
-          ?.value
-          .trim() || "";
+          .value
+          .trim();
 
 
       const message =
         $("#whatsappTemplate")
-          ?.value
-          .trim() || "";
+          .value
+          .trim();
 
 
       const settings = [
 
         {
-          key: "whatsapp_number",
-          value: number
+          key:
+            "whatsapp_number",
+
+          value:
+            number
         },
 
         {
-          key: "whatsapp_message",
-          value: message
+          key:
+            "whatsapp_message",
+
+          value:
+            message
         }
 
       ];
 
 
       for (
-        const setting of settings
+        const setting
+        of settings
       ) {
 
         const {
           error
         } = await supabase
-          .from(TABLES.settings)
+          .from(
+            TABLES.settings
+          )
           .upsert(
             {
-              key: setting.key,
-              value: setting.value,
+              key:
+                setting.key,
+
+              value:
+                setting.value,
+
               updated_by:
                 currentUser.id,
+
               updated_at:
-                new Date().toISOString()
+                new Date()
+                  .toISOString()
             },
             {
-              onConflict: "key"
+              onConflict:
+                "key"
             }
           );
 
@@ -3180,7 +3491,6 @@ if (contactSettingsForm) {
 
       applyContactSettings();
 
-
       showToast(
         "CONTACT SETTINGS SAVED",
         "success"
@@ -3189,68 +3499,64 @@ if (contactSettingsForm) {
     }
   );
 
-}
-
 
 /* =========================================================
    EDITOR MODAL
    ========================================================= */
 
-if (closeEditor) {
-
-  closeEditor.addEventListener(
-    "click",
-    closeEditorModal
-  );
-
-}
+closeEditor.addEventListener(
+  "click",
+  closeEditorModal
+);
 
 
-if (editorModal) {
+editorModal.addEventListener(
+  "click",
+  (event) => {
 
-  editorModal.addEventListener(
-    "click",
-    (event) => {
+    if (
+      event.target ===
+      editorModal
+    ) {
 
-      if (
-        event.target === editorModal
-      ) {
-        closeEditorModal();
-      }
-
+      closeEditorModal();
     }
-  );
 
-}
+  }
+);
 
 
 function openEditorModal() {
 
-  if (!editorModal) return;
+  if (
+    currentProfile?.role !==
+    "admin"
+  ) return;
+
 
   editorModal.classList.remove(
     "hidden"
   );
+
 
   editorModal.setAttribute(
     "aria-hidden",
     "false"
   );
 
+
   document.body.classList.add(
     "modal-open"
   );
-
 }
 
 
 function closeEditorModal() {
 
-  if (!editorModal) return;
-
   editorModal.classList.add(
     "hidden"
   );
+
 
   editorModal.setAttribute(
     "aria-hidden",
@@ -3259,7 +3565,6 @@ function closeEditorModal() {
 
 
   if (
-    adminOverlay &&
     !adminOverlay.classList.contains(
       "hidden"
     )
@@ -3279,8 +3584,8 @@ function closeEditorModal() {
 
 
   editorType = null;
-  editingId = null;
 
+  editingId = null;
 }
 
 
@@ -3290,10 +3595,7 @@ function closeEditorModal() {
 
 function bindStaticEvents() {
 
-  if (
-    mobileMenuButton &&
-    mainNav
-  ) {
+  if (mobileMenuButton) {
 
     mobileMenuButton.addEventListener(
       "click",
@@ -3316,8 +3618,11 @@ function bindStaticEvents() {
       (event) => {
 
         if (
-          event.target.closest("a")
+          event.target.closest(
+            "a"
+          )
         ) {
+
           mainNav.classList.remove(
             "open"
           );
@@ -3333,34 +3638,34 @@ function bindStaticEvents() {
     "keydown",
     (event) => {
 
-      if (event.key !== "Escape") {
-        return;
-      }
-
-
       if (
-        editorModal &&
-        !editorModal.classList.contains(
-          "hidden"
-        )
+        event.key ===
+        "Escape"
       ) {
 
-        closeEditorModal();
+        if (
+          !editorModal.classList.contains(
+            "hidden"
+          )
+        ) {
 
-      } else if (
-        adminOverlay &&
-        !adminOverlay.classList.contains(
-          "hidden"
-        )
-      ) {
+          closeEditorModal();
 
-        closeAdminPanel();
+        } else if (
+          !adminOverlay.classList.contains(
+            "hidden"
+          )
+        ) {
 
-      } else if (mainNav) {
+          closeAdminPanel();
 
-        mainNav.classList.remove(
-          "open"
-        );
+        } else {
+
+          mainNav.classList.remove(
+            "open"
+          );
+
+        }
 
       }
 
@@ -3369,23 +3674,21 @@ function bindStaticEvents() {
 
 
   observeReveals();
-
 }
 
 
 /* =========================================================
-   VIDEO EMBED
+   VIDEO
    ========================================================= */
 
 function buildVideoEmbed(url) {
 
   if (!url) return "";
 
+
   const clean =
     String(url).trim();
 
-
-  /* YOUTUBE EMBED */
 
   if (
     clean.includes(
@@ -3397,20 +3700,19 @@ function buildVideoEmbed(url) {
       <div class="question-video">
 
         <iframe
-          src="${escapeAttribute(clean)}"
+          src="${escapeAttribute(
+            clean
+          )}"
           title="Question video"
           loading="lazy"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowfullscreen
-        ></iframe>
+          allowfullscreen>
+        </iframe>
 
       </div>
     `;
-
   }
 
-
-  /* YOUTUBE WATCH / SHORT URL */
 
   if (
     clean.includes(
@@ -3422,7 +3724,10 @@ function buildVideoEmbed(url) {
   ) {
 
     const id =
-      extractYouTubeId(clean);
+      extractYouTubeId(
+        clean
+      );
+
 
     if (id) {
 
@@ -3430,22 +3735,21 @@ function buildVideoEmbed(url) {
         <div class="question-video">
 
           <iframe
-            src="https://www.youtube.com/embed/${escapeAttribute(id)}"
+            src="https://www.youtube.com/embed/${escapeAttribute(
+              id
+            )}"
             title="Question video"
             loading="lazy"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowfullscreen
-          ></iframe>
+            allowfullscreen>
+          </iframe>
 
         </div>
       `;
-
     }
 
   }
 
-
-  /* DIRECT VIDEO */
 
   if (
     /\.(mp4|webm|ogg)(\?.*)?$/i.test(
@@ -3457,25 +3761,21 @@ function buildVideoEmbed(url) {
       <div class="question-video">
 
         <video
-          src="${escapeAttribute(clean)}"
+          src="${escapeAttribute(
+            clean
+          )}"
           controls
-          preload="metadata"
-        ></video>
+          preload="metadata">
+        </video>
 
       </div>
     `;
-
   }
 
 
   return "";
-
 }
 
-
-/* =========================================================
-   YOUTUBE ID
-   ========================================================= */
 
 function extractYouTubeId(url) {
 
@@ -3491,10 +3791,9 @@ function extractYouTubeId(url) {
       )
     ) {
 
-      return parsed.pathname
-        .slice(1)
-        .split("/")[0];
-
+      return parsed.pathname.slice(
+        1
+      );
     }
 
 
@@ -3505,44 +3804,54 @@ function extractYouTubeId(url) {
   } catch {
 
     return null;
-
   }
-
 }
 
 
 /* =========================================================
-   FORMAT RICH TEXT
+   TEXT
    ========================================================= */
 
 function formatRichText(value) {
 
-  return escapeHTML(value)
-    .replace(/\n/g, "<br>");
-
+  return escapeHTML(
+    value
+  ).replace(
+    /\n/g,
+    "<br>"
+  );
 }
 
-
-/* =========================================================
-   FILE NAME
-   ========================================================= */
 
 function sanitizeFileName(name) {
 
   return String(name)
-    .normalize("NFKD")
-    .replace(/[^\w.\-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 100) ||
-    "file";
 
+    .normalize("NFKD")
+
+    .replace(
+      /[^\w.\-]+/g,
+      "-"
+    )
+
+    .replace(
+      /-+/g,
+      "-"
+    )
+
+    .replace(
+      /^-|-$/g,
+      ""
+    )
+
+    .slice(
+      0,
+      100
+    ) ||
+
+    "file";
 }
 
-
-/* =========================================================
-   ESCAPE HTML
-   ========================================================= */
 
 function escapeHTML(value) {
 
@@ -3572,14 +3881,12 @@ function escapeHTML(value) {
       "'",
       "&#039;"
     );
-
 }
 
 
 function escapeAttribute(value) {
 
   return escapeHTML(value);
-
 }
 
 
@@ -3592,11 +3899,10 @@ function showToast(
   type = "success"
 ) {
 
-  if (!toastRegion) return;
-
-
   const toast =
-    document.createElement("div");
+    document.createElement(
+      "div"
+    );
 
 
   toast.className =
@@ -3615,21 +3921,25 @@ function showToast(
   window.setTimeout(
     () => {
 
-      toast.style.opacity = "0";
+      toast.style.opacity =
+        "0";
 
       toast.style.transform =
         "translateY(8px)";
 
 
       window.setTimeout(
-        () => toast.remove(),
+        () => {
+
+          toast.remove();
+
+        },
         260
       );
 
     },
     2800
   );
-
 }
 
 
@@ -3646,13 +3956,20 @@ function observeReveals() {
     $$(".reveal:not(.observed)");
 
 
-  if (!("IntersectionObserver" in window)) {
+  if (
+    !(
+      "IntersectionObserver"
+      in window
+    )
+  ) {
 
     elements.forEach(
       (element) => {
+
         element.classList.add(
           "visible"
         );
+
       }
     );
 
@@ -3664,7 +3981,10 @@ function observeReveals() {
 
     revealObserver =
       new IntersectionObserver(
-        (entries, observer) => {
+        (
+          entries,
+          observer
+        ) => {
 
           entries.forEach(
             (entry) => {
@@ -3684,7 +4004,6 @@ function observeReveals() {
                 observer.unobserve(
                   entry.target
                 );
-
               }
 
             }
@@ -3708,5 +4027,4 @@ function observeReveals() {
 
     }
   );
-
 }
