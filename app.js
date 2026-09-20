@@ -1,9 +1,11 @@
 /* =========================================================
-   QUESTION ARCHIVE — SUPABASE APP
+   QUESTION ARCHIVE
+   STUDENT DIRECT ACCESS + ADMIN LOGIN
    ========================================================= */
 
+
 /* =========================================================
-   SUPABASE CONFIG
+   SUPABASE
    ========================================================= */
 
 const SUPABASE_URL =
@@ -12,7 +14,6 @@ const SUPABASE_URL =
 const SUPABASE_ANON_KEY =
   "sb_publishable_8LtNCb9mSVJutvGk7mBJRA_nfG3gd4f";
 
-const STORAGE_BUCKET = "question-media";
 
 const TABLES = {
   profiles: "profiles",
@@ -23,10 +24,6 @@ const TABLES = {
 };
 
 
-/* =========================================================
-   GLOBAL STATE
-   ========================================================= */
-
 let supabase = null;
 
 let currentUser = null;
@@ -35,155 +32,259 @@ let currentProfile = null;
 let chapters = [];
 let questions = [];
 let categories = [];
-
 let siteSettings = {};
 
 let selectedChapter = null;
-let selectedQuestion = null;
-let selectedCategory = null;
 
 let editorType = null;
 let editingId = null;
-
-let searchTimer = null;
 
 
 /* =========================================================
    HELPERS
    ========================================================= */
 
-const $ = (selector) => document.querySelector(selector);
+const $ = (selector) =>
+  document.querySelector(selector);
 
-const $$ = (selector) => [
-  ...document.querySelectorAll(selector)
-];
-
-
-/* =========================================================
-   DOM ELEMENTS
-   ========================================================= */
-
-const authScreen = $("#authScreen");
-const appShell = $("#appShell");
-
-const mobileMenuButton = $("#mobileMenuButton");
-const mainNav = $("#mainNav");
-
-const adminNavButton = $("#adminNavButton");
-
-const adminLoginButton = $("#adminLoginButton");
-
-const userRoleBadge = $("#userRoleBadge");
-
-const footerYear = $("#footerYear");
-
-const chaptersGrid = $("#chaptersGrid");
-const chaptersEmpty = $("#chaptersEmpty");
-
-const questionsSection = $("#questionsSection");
-const selectedChapterTitle = $("#selectedChapterTitle");
-const selectedChapterDescription = $("#selectedChapterDescription");
-
-const questionsList = $("#questionsList");
-const questionsEmpty = $("#questionsEmpty");
-
-const searchInput = $("#searchInput");
-const categoryFilter = $("#categoryFilter");
-const searchResults = $("#searchResults");
-const searchEmpty = $("#searchEmpty");
-
-const generalWhatsApp = $("#generalWhatsApp");
-const contactNumberLabel = $("#contactNumberLabel");
-
-const adminOverlay = $("#adminOverlay");
-const closeAdmin = $("#closeAdmin");
-
-const adminTabs = $$(".admin-tab");
-const adminPanels = $$(".admin-panel");
-
-const statChapters = $("#statChapters");
-const statQuestions = $("#statQuestions");
-const statCategories = $("#statCategories");
-
-const adminChaptersList = $("#adminChaptersList");
-const adminQuestionsList = $("#adminQuestionsList");
-const adminCategoriesList = $("#adminCategoriesList");
-
-const addChapterButton = $("#addChapterButton");
-const addQuestionButton = $("#addQuestionButton");
-const addCategoryButton = $("#addCategoryButton");
-
-const contactSettingsForm = $("#contactSettingsForm");
-const whatsappNumber = $("#whatsappNumber");
-const whatsappTemplate = $("#whatsappTemplate");
-
-const editorModal = $("#editorModal");
-const editorTitle = $("#editorTitle");
-const editorKicker = $("#editorKicker");
-const editorForm = $("#editorForm");
-const closeEditor = $("#closeEditor");
-
-const toastRegion = $("#toastRegion");
+const $$ = (selector) =>
+  Array.from(
+    document.querySelectorAll(selector)
+  );
 
 
 /* =========================================================
-   BOOT
+   DOM
    ========================================================= */
 
-document.addEventListener("DOMContentLoaded", boot);
+const authScreen =
+  $("#authScreen");
+
+const appShell =
+  $("#appShell");
+
+const adminLoginButton =
+  $("#adminLoginButton");
+
+const adminNavButton =
+  $("#adminNavButton");
+
+const userRoleBadge =
+  $("#userRoleBadge");
+
+const footerYear =
+  $("#footerYear");
+
+const chaptersGrid =
+  $("#chaptersGrid");
+
+const chaptersEmpty =
+  $("#chaptersEmpty");
+
+const questionsSection =
+  $("#questionsSection");
+
+const selectedChapterTitle =
+  $("#selectedChapterTitle");
+
+const selectedChapterDescription =
+  $("#selectedChapterDescription");
+
+const questionsList =
+  $("#questionsList");
+
+const questionsEmpty =
+  $("#questionsEmpty");
+
+const searchInput =
+  $("#searchInput");
+
+const categoryFilter =
+  $("#categoryFilter");
+
+const searchResults =
+  $("#searchResults");
+
+const searchEmpty =
+  $("#searchEmpty");
+
+const generalWhatsApp =
+  $("#generalWhatsApp");
+
+const contactNumberLabel =
+  $("#contactNumberLabel");
+
+const adminOverlay =
+  $("#adminOverlay");
+
+const closeAdmin =
+  $("#closeAdmin");
+
+const adminTabs =
+  $$(".admin-tab");
+
+const adminPanels =
+  $$(".admin-panel");
+
+const statChapters =
+  $("#statChapters");
+
+const statQuestions =
+  $("#statQuestions");
+
+const statCategories =
+  $("#statCategories");
+
+const adminChaptersList =
+  $("#adminChaptersList");
+
+const adminQuestionsList =
+  $("#adminQuestionsList");
+
+const adminCategoriesList =
+  $("#adminCategoriesList");
+
+const addChapterButton =
+  $("#addChapterButton");
+
+const addQuestionButton =
+  $("#addQuestionButton");
+
+const addCategoryButton =
+  $("#addCategoryButton");
+
+const contactSettingsForm =
+  $("#contactSettingsForm");
+
+const whatsappNumber =
+  $("#whatsappNumber");
+
+const whatsappTemplate =
+  $("#whatsappTemplate");
+
+const editorModal =
+  $("#editorModal");
+
+const editorTitle =
+  $("#editorTitle");
+
+const editorKicker =
+  $("#editorKicker");
+
+const editorForm =
+  $("#editorForm");
+
+const closeEditor =
+  $("#closeEditor");
+
+const toastRegion =
+  $("#toastRegion");
+
+
+/* =========================================================
+   START
+   ========================================================= */
+
+document.addEventListener(
+  "DOMContentLoaded",
+  boot
+);
 
 
 async function boot() {
 
+  console.log(
+    "Question Archive starting..."
+  );
+
+
   if (footerYear) {
+
     footerYear.textContent =
       new Date().getFullYear();
+
   }
 
 
-  bindStaticEvents();
+  /*
+   * مهم جدًا:
+   * الموقع يبدأ كـ STUDENT
+   */
+
+  appShell.classList.remove(
+    "hidden"
+  );
+
+  authScreen.classList.add(
+    "hidden"
+  );
+
+  authScreen.setAttribute(
+    "aria-hidden",
+    "true"
+  );
 
 
-  if (!isSupabaseConfigured()) {
-    showConfigMessage();
+  userRoleBadge.textContent =
+    "STUDENT";
+
+
+  adminLoginButton.classList.remove(
+    "hidden"
+  );
+
+
+  adminNavButton.classList.add(
+    "hidden"
+  );
+
+
+  bindEvents();
+
+
+  /*
+   * إنشاء Supabase
+   */
+
+  if (
+    !window.supabase ||
+    !window.supabase.createClient
+  ) {
+
+    console.error(
+      "Supabase library not loaded."
+    );
+
+    showToast(
+      "تعذر تحميل Supabase.",
+      "error"
+    );
+
     return;
+
   }
 
 
   try {
 
-    supabase = window.supabase.createClient(
-      SUPABASE_URL,
-      SUPABASE_ANON_KEY
-    );
+    supabase =
+      window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_ANON_KEY
+      );
 
   } catch (error) {
 
     console.error(error);
 
     showToast(
-      "تعذر الاتصال بقاعدة البيانات.",
+      "تعذر الاتصال بـ Supabase.",
       "error"
     );
 
     return;
+
   }
-
-
-  /*
-   * الطالب يدخل الموقع مباشرة
-   */
-
-  authScreen?.classList.add("hidden");
-  authScreen?.setAttribute("aria-hidden", "true");
-
-  appShell?.classList.remove("hidden");
-
-  userRoleBadge.textContent = "STUDENT";
-
-  adminLoginButton?.classList.remove("hidden");
-
-  adminNavButton?.classList.add("hidden");
 
 
   /*
@@ -194,21 +295,24 @@ async function boot() {
 
 
   /*
-   * التحقق هل يوجد Admin session
+   * فحص جلسة Admin موجودة بالفعل
    */
 
   try {
 
     const {
-      data: {
-        session
-      }
-    } = await supabase.auth.getSession();
+      data
+    } =
+      await supabase.auth.getSession();
+
+
+    const session =
+      data?.session;
 
 
     if (session?.user) {
 
-      await loadAdminSession(
+      await checkAdminSession(
         session.user
       );
 
@@ -217,7 +321,7 @@ async function boot() {
   } catch (error) {
 
     console.error(
-      "Session check error:",
+      "Session error:",
       error
     );
 
@@ -225,25 +329,19 @@ async function boot() {
 
 
   /*
-   * مراقبة حالة تسجيل الدخول
+   * مراقبة تسجيل الدخول
    */
 
   supabase.auth.onAuthStateChange(
-    async (event, session) => {
+    async (
+      event,
+      session
+    ) => {
 
-      if (event === "SIGNED_OUT") {
-
-        currentUser = null;
-        currentProfile = null;
-
-        adminNavButton?.classList.add("hidden");
-
-        adminLoginButton?.classList.remove("hidden");
-
-        userRoleBadge.textContent = "STUDENT";
-
-        return;
-      }
+      console.log(
+        "Auth event:",
+        event
+      );
 
 
       if (
@@ -251,8 +349,29 @@ async function boot() {
         session?.user
       ) {
 
-        await loadAdminSession(
+        await checkAdminSession(
           session.user
+        );
+
+      }
+
+
+      if (
+        event === "SIGNED_OUT"
+      ) {
+
+        currentUser = null;
+        currentProfile = null;
+
+        userRoleBadge.textContent =
+          "STUDENT";
+
+        adminLoginButton.classList.remove(
+          "hidden"
+        );
+
+        adminNavButton.classList.add(
+          "hidden"
         );
 
       }
@@ -264,211 +383,405 @@ async function boot() {
 
 
 /* =========================================================
-   SUPABASE CONFIG
+   EVENTS
    ========================================================= */
 
-function isSupabaseConfigured() {
+function bindEvents() {
 
-  return (
-    SUPABASE_URL &&
-    SUPABASE_ANON_KEY &&
-    SUPABASE_URL.includes("supabase.co")
+
+  /*
+   * Admin login
+   *
+   * عندنا أيضًا onclick داخل HTML
+   * كحماية إضافية.
+   */
+
+  adminLoginButton?.addEventListener(
+    "click",
+    showAdminLogin
   );
 
-}
+
+  /*
+   * Admin dashboard
+   */
+
+  adminNavButton?.addEventListener(
+    "click",
+    openAdminDashboard
+  );
 
 
-function showConfigMessage() {
+  closeAdmin?.addEventListener(
+    "click",
+    closeAdminDashboard
+  );
 
-  if (!appShell) return;
 
-  appShell.innerHTML = `
-    <section class="section">
-      <div class="container">
-        <div class="empty-state">
-          <div class="empty-mark">!</div>
-          <h3>Supabase غير مضبوط</h3>
-          <p>
-            تأكد من وضع SUPABASE_URL و SUPABASE_ANON_KEY بشكل صحيح داخل app.js.
-          </p>
-        </div>
-      </div>
-    </section>
-  `;
+  /*
+   * Admin tabs
+   */
+
+  adminTabs.forEach(
+    (button) => {
+
+      button.addEventListener(
+        "click",
+        () => {
+
+          switchAdminTab(
+            button.dataset.adminTab
+          );
+
+        }
+      );
+
+    }
+  );
+
+
+  /*
+   * Add
+   */
+
+  addChapterButton?.addEventListener(
+    "click",
+    () => {
+
+      openEditor(
+        "chapter"
+      );
+
+    }
+  );
+
+
+  addQuestionButton?.addEventListener(
+    "click",
+    () => {
+
+      openEditor(
+        "question"
+      );
+
+    }
+  );
+
+
+  addCategoryButton?.addEventListener(
+    "click",
+    () => {
+
+      openEditor(
+        "category"
+      );
+
+    }
+  );
+
+
+  /*
+   * Editor close
+   */
+
+  closeEditor?.addEventListener(
+    "click",
+    closeEditorModal
+  );
+
+
+  editorModal?.addEventListener(
+    "click",
+    (event) => {
+
+      if (
+        event.target ===
+        editorModal
+      ) {
+
+        closeEditorModal();
+
+      }
+
+    }
+  );
+
+
+  /*
+   * Search
+   */
+
+  searchInput?.addEventListener(
+    "input",
+    renderSearchResults
+  );
+
+
+  categoryFilter?.addEventListener(
+    "change",
+    renderSearchResults
+  );
+
+
+  /*
+   * Contact
+   */
+
+  generalWhatsApp?.addEventListener(
+    "click",
+    openGeneralWhatsApp
+  );
+
+
+  contactSettingsForm?.addEventListener(
+    "submit",
+    saveContactSettings
+  );
+
+
+  /*
+   * ESC
+   */
+
+  document.addEventListener(
+    "keydown",
+    (event) => {
+
+      if (
+        event.key === "Escape"
+      ) {
+
+        closeAdminDashboard();
+
+        closeEditorModal();
+
+      }
+
+    }
+  );
 
 }
 
 
 /* =========================================================
-   ADMIN LOGIN
+   ADMIN LOGIN SCREEN
    ========================================================= */
 
 /*
- * يفتح شاشة تسجيل دخول الأدمن فقط.
+ * مهم:
+ * window.showAdminLogin
+ * حتى يعمل onclick الموجود في HTML.
  */
 
-function showAdminLogin() {
+window.showAdminLogin =
+  function showAdminLogin() {
 
-  if (!authScreen) return;
-
-  authScreen.innerHTML = `
-    <div class="auth-frame">
-
-      <div class="auth-decoration">
-        <span>QA</span>
-      </div>
-
-      <div class="auth-content">
-
-        <span class="section-label">
-          PRIVATE AREA
-        </span>
-
-        <h1>
-          ADMIN LOGIN
-        </h1>
-
-        <p class="auth-description">
-          تسجيل الدخول متاح للإدارة فقط.
-        </p>
-
-        <form
-          id="adminLoginForm"
-          class="auth-form"
-          novalidate>
-
-          <label for="adminEmail">
-            EMAIL
-          </label>
-
-          <input
-            id="adminEmail"
-            name="email"
-            type="email"
-            autocomplete="username"
-            placeholder="admin@example.com"
-            required>
+    console.log(
+      "Opening admin login..."
+    );
 
 
-          <label for="adminPassword">
-            PASSWORD
-          </label>
+    if (!authScreen) {
 
-          <div class="password-wrap">
+      alert(
+        "authScreen غير موجود في index.html"
+      );
+
+      return;
+
+    }
+
+
+    authScreen.innerHTML = `
+
+      <div class="auth-frame">
+
+        <div class="auth-decoration">
+          <span>QA</span>
+        </div>
+
+
+        <div class="auth-content">
+
+          <span class="section-label">
+            PRIVATE AREA
+          </span>
+
+
+          <h1>
+            ADMIN LOGIN
+          </h1>
+
+
+          <p class="auth-description">
+            تسجيل الدخول متاح للإدارة فقط.
+          </p>
+
+
+          <form
+            id="adminLoginForm"
+            class="auth-form">
+
+            <label for="adminEmail">
+              EMAIL
+            </label>
+
 
             <input
-              id="adminPassword"
-              name="password"
-              type="password"
-              autocomplete="current-password"
-              placeholder="••••••••"
+              id="adminEmail"
+              type="email"
+              placeholder="admin@example.com"
+              autocomplete="username"
               required>
 
+
+            <label for="adminPassword">
+              PASSWORD
+            </label>
+
+
+            <div class="password-wrap">
+
+              <input
+                id="adminPassword"
+                type="password"
+                placeholder="••••••••"
+                autocomplete="current-password"
+                required>
+
+
+              <button
+                id="toggleAdminPassword"
+                type="button"
+                class="password-toggle">
+
+                SHOW
+
+              </button>
+
+            </div>
+
+
             <button
-              id="toggleAdminPassword"
-              type="button"
-              class="password-toggle">
-              SHOW
+              type="submit"
+              class="archive-button primary">
+
+              LOGIN AS ADMIN
+
+              <span class="button-mark">
+                →
+              </span>
+
             </button>
 
-          </div>
+
+            <button
+              id="cancelAdminLogin"
+              type="button"
+              class="text-button">
+
+              BACK TO ARCHIVE
+
+            </button>
 
 
-          <button
-            type="submit"
-            class="archive-button primary auth-submit">
+            <div
+              id="authStatus"
+              class="auth-status"
+              aria-live="polite">
+            </div>
 
-            LOGIN AS ADMIN
+          </form>
 
-            <span class="button-mark">
-              →
-            </span>
-
-          </button>
-
-
-          <button
-            id="cancelAdminLogin"
-            type="button"
-            class="text-button auth-cancel">
-
-            BACK TO ARCHIVE
-
-          </button>
-
-
-          <div
-            id="authStatus"
-            class="auth-status"
-            aria-live="polite">
-          </div>
-
-        </form>
+        </div>
 
       </div>
 
-    </div>
-  `;
+    `;
 
 
-  appShell?.classList.add("hidden");
-
-  authScreen.classList.remove("hidden");
-
-  authScreen.setAttribute(
-    "aria-hidden",
-    "false"
-  );
+    appShell.classList.add(
+      "hidden"
+    );
 
 
-  bindAdminLoginForm();
+    authScreen.classList.remove(
+      "hidden"
+    );
 
-}
+
+    authScreen.setAttribute(
+      "aria-hidden",
+      "false"
+    );
 
 
-function bindAdminLoginForm() {
+    bindAdminLogin();
 
-  const form = $("#adminLoginForm");
+  };
 
-  const email = $("#adminEmail");
 
-  const password = $("#adminPassword");
+/* =========================================================
+   ADMIN LOGIN FORM
+   ========================================================= */
 
-  const togglePassword =
+function bindAdminLogin() {
+
+  const form =
+    $("#adminLoginForm");
+
+  const email =
+    $("#adminEmail");
+
+  const password =
+    $("#adminPassword");
+
+  const toggle =
     $("#toggleAdminPassword");
 
-  const cancelButton =
+  const cancel =
     $("#cancelAdminLogin");
 
   const status =
     $("#authStatus");
 
 
-  if (!form) return;
+  if (!form) {
+
+    console.error(
+      "Admin login form not found."
+    );
+
+    return;
+
+  }
 
 
   /*
-   * Show / Hide password
+   * Show password
    */
 
-  togglePassword?.addEventListener(
+  toggle?.addEventListener(
     "click",
     () => {
 
       if (
-        password.type === "password"
+        password.type ===
+        "password"
       ) {
 
-        password.type = "text";
+        password.type =
+          "text";
 
-        togglePassword.textContent =
+        toggle.textContent =
           "HIDE";
 
       } else {
 
-        password.type = "password";
+        password.type =
+          "password";
 
-        togglePassword.textContent =
+        toggle.textContent =
           "SHOW";
 
       }
@@ -478,21 +791,17 @@ function bindAdminLoginForm() {
 
 
   /*
-   * العودة للموقع
+   * Back
    */
 
-  cancelButton?.addEventListener(
+  cancel?.addEventListener(
     "click",
-    () => {
-
-      closeAdminLogin();
-
-    }
+    closeAdminLogin
   );
 
 
   /*
-   * Login
+   * Submit
    */
 
   form.addEventListener(
@@ -514,17 +823,18 @@ function bindAdminLoginForm() {
         !passwordValue
       ) {
 
-        setAuthStatus(
+        setStatus(
           status,
           "اكتب البريد الإلكتروني وكلمة المرور.",
           "error"
         );
 
         return;
+
       }
 
 
-      setAuthStatus(
+      setStatus(
         status,
         "جاري تسجيل الدخول...",
         "loading"
@@ -533,42 +843,70 @@ function bindAdminLoginForm() {
 
       try {
 
+        if (!supabase) {
+
+          setStatus(
+            status,
+            "Supabase غير متصل.",
+            "error"
+          );
+
+          return;
+
+        }
+
+
+        /*
+         * تسجيل الدخول
+         */
+
         const {
           data,
           error
         } =
           await supabase.auth.signInWithPassword({
-            email: emailValue,
-            password: passwordValue
+            email:
+              emailValue,
+
+            password:
+              passwordValue
           });
 
 
         if (error) {
 
-          setAuthStatus(
+          console.error(
+            error
+          );
+
+          setStatus(
             status,
             getAuthError(error),
             "error"
           );
 
           return;
+
         }
 
 
-        if (!data?.user) {
+        if (
+          !data?.user
+        ) {
 
-          setAuthStatus(
+          setStatus(
             status,
-            "تعذر تسجيل الدخول.",
+            "تعذر الحصول على حساب المستخدم.",
             "error"
           );
 
           return;
+
         }
 
 
         /*
-         * التأكد أن الحساب Admin
+         * فحص profile
          */
 
         const {
@@ -578,68 +916,85 @@ function bindAdminLoginForm() {
           await supabase
             .from(TABLES.profiles)
             .select("*")
-            .eq("id", data.user.id)
+            .eq(
+              "id",
+              data.user.id
+            )
             .maybeSingle();
 
 
         if (
-          profileError ||
+          profileError
+        ) {
+
+          console.error(
+            profileError
+          );
+
+          await supabase.auth.signOut();
+
+          setStatus(
+            status,
+            "تعذر التحقق من صلاحيات الحساب.",
+            "error"
+          );
+
+          return;
+
+        }
+
+
+        /*
+         * ليس Admin
+         */
+
+        if (
           !profile ||
-          profile.role !== "admin"
+          profile.role !==
+            "admin"
         ) {
 
           await supabase.auth.signOut();
 
 
-          setAuthStatus(
+          setStatus(
             status,
             "هذا الحساب ليس حساب Admin.",
             "error"
           );
 
           return;
+
         }
 
 
         /*
-         * Admin verified
+         * Admin confirmed
          */
 
-        currentUser = data.user;
+        currentUser =
+          data.user;
 
-        currentProfile = profile;
+        currentProfile =
+          profile;
 
 
         userRoleBadge.textContent =
           "ADMIN";
 
 
-        adminLoginButton?.classList.add(
+        adminLoginButton.classList.add(
           "hidden"
         );
 
 
-        adminNavButton?.classList.remove(
+        adminNavButton.classList.remove(
           "hidden"
         );
 
 
-        authScreen.classList.add(
-          "hidden"
-        );
+        closeAdminLogin();
 
-        authScreen.setAttribute(
-          "aria-hidden",
-          "true"
-        );
-
-
-        appShell.classList.remove(
-          "hidden"
-        );
-
-
-        await refreshPublicContent();
 
         await renderAdminLists();
 
@@ -651,9 +1006,11 @@ function bindAdminLoginForm() {
 
       } catch (error) {
 
-        console.error(error);
+        console.error(
+          error
+        );
 
-        setAuthStatus(
+        setStatus(
           status,
           "حدث خطأ أثناء تسجيل الدخول.",
           "error"
@@ -667,29 +1024,43 @@ function bindAdminLoginForm() {
 }
 
 
+/* =========================================================
+   CLOSE ADMIN LOGIN
+   ========================================================= */
+
 function closeAdminLogin() {
 
-  authScreen?.classList.add("hidden");
+  authScreen.classList.add(
+    "hidden"
+  );
 
-  authScreen?.setAttribute(
+  authScreen.setAttribute(
     "aria-hidden",
     "true"
   );
 
-  if (appShell) {
-    appShell.classList.remove("hidden");
-  }
+  authScreen.innerHTML =
+    "";
+
+  appShell.classList.remove(
+    "hidden"
+  );
 
 }
 
 
 /* =========================================================
-   AUTH SESSION
+   CHECK ADMIN SESSION
    ========================================================= */
 
-async function loadAdminSession(user) {
+async function checkAdminSession(
+  user
+) {
 
-  if (!supabase || !user) return;
+  if (
+    !supabase ||
+    !user
+  ) return;
 
 
   try {
@@ -701,7 +1072,10 @@ async function loadAdminSession(user) {
       await supabase
         .from(TABLES.profiles)
         .select("*")
-        .eq("id", user.id)
+        .eq(
+          "id",
+          user.id
+        )
         .maybeSingle();
 
 
@@ -711,40 +1085,45 @@ async function loadAdminSession(user) {
       profile.role !== "admin"
     ) {
 
-      currentUser = null;
+      currentUser =
+        null;
 
-      currentProfile = null;
-
-      adminNavButton?.classList.add(
-        "hidden"
-      );
-
-      adminLoginButton?.classList.remove(
-        "hidden"
-      );
+      currentProfile =
+        null;
 
       userRoleBadge.textContent =
         "STUDENT";
 
+      adminLoginButton.classList.remove(
+        "hidden"
+      );
+
+      adminNavButton.classList.add(
+        "hidden"
+      );
+
       return;
+
     }
 
 
-    currentUser = user;
+    currentUser =
+      user;
 
-    currentProfile = profile;
+    currentProfile =
+      profile;
 
 
     userRoleBadge.textContent =
       "ADMIN";
 
 
-    adminLoginButton?.classList.add(
+    adminLoginButton.classList.add(
       "hidden"
     );
 
 
-    adminNavButton?.classList.remove(
+    adminNavButton.classList.remove(
       "hidden"
     );
 
@@ -754,7 +1133,6 @@ async function loadAdminSession(user) {
   } catch (error) {
 
     console.error(
-      "Admin session error:",
       error
     );
 
@@ -763,78 +1141,16 @@ async function loadAdminSession(user) {
 }
 
 
+/* =========================================================
+   ADMIN CHECK
+   ========================================================= */
+
 function isAdmin() {
 
   return (
     currentProfile &&
-    currentProfile.role === "admin"
-  );
-
-}
-
-
-/* =========================================================
-   AUTH STATUS
-   ========================================================= */
-
-function setAuthStatus(
-  element,
-  message,
-  type = ""
-) {
-
-  if (!element) return;
-
-  element.textContent = message;
-
-  element.className =
-    `auth-status ${type}`;
-
-}
-
-
-function getAuthError(error) {
-
-  if (!error) {
-    return "حدث خطأ غير معروف.";
-  }
-
-
-  const message =
-    String(error.message || "")
-      .toLowerCase();
-
-
-  if (
-    message.includes("invalid login credentials")
-  ) {
-
-    return "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
-
-  }
-
-
-  if (
-    message.includes("email not confirmed")
-  ) {
-
-    return "يجب تأكيد البريد الإلكتروني أولًا.";
-
-  }
-
-
-  if (
-    message.includes("too many requests")
-  ) {
-
-    return "محاولات كثيرة. حاول مرة أخرى بعد قليل.";
-
-  }
-
-
-  return (
-    error.message ||
-    "تعذر تسجيل الدخول."
+    currentProfile.role ===
+      "admin"
   );
 
 }
@@ -846,7 +1162,8 @@ function getAuthError(error) {
 
 async function refreshPublicContent() {
 
-  if (!supabase) return;
+  if (!supabase)
+    return;
 
 
   try {
@@ -865,23 +1182,25 @@ async function refreshPublicContent() {
 
     renderSearchResults();
 
+    updateContact();
 
-    if (selectedChapter) {
 
-      const updatedChapter =
+    if (
+      selectedChapter
+    ) {
+
+      const exists =
         chapters.find(
           (item) =>
-            item.id === selectedChapter.id
+            item.id ===
+            selectedChapter.id
         );
 
 
-      if (updatedChapter) {
-
-        selectedChapter =
-          updatedChapter;
+      if (exists) {
 
         openChapter(
-          updatedChapter.id,
+          exists.id,
           false
         );
 
@@ -889,19 +1208,11 @@ async function refreshPublicContent() {
 
     }
 
-
-    updateContactUI();
-
   } catch (error) {
 
     console.error(
-      "Refresh content error:",
+      "Content error:",
       error
-    );
-
-    showToast(
-      "حدث خطأ أثناء تحميل المحتوى.",
-      "error"
     );
 
   }
@@ -922,26 +1233,30 @@ async function loadChapters() {
     await supabase
       .from(TABLES.chapters)
       .select("*")
-      .order("sort_order", {
-        ascending: true
-      })
-      .order("created_at", {
-        ascending: true
-      });
+      .order(
+        "sort_order",
+        {
+          ascending: true
+        }
+      );
 
 
   if (error) {
 
     console.error(
-      "Load chapters:",
+      "Chapters:",
       error
     );
 
-    throw error;
+    chapters = [];
+
+    return;
+
   }
 
 
-  chapters = data || [];
+  chapters =
+    data || [];
 
 }
 
@@ -969,26 +1284,30 @@ async function loadQuestions() {
           name
         )
       `)
-      .order("sort_order", {
-        ascending: true
-      })
-      .order("created_at", {
-        ascending: true
-      });
+      .order(
+        "sort_order",
+        {
+          ascending: true
+        }
+      );
 
 
   if (error) {
 
     console.error(
-      "Load questions:",
+      "Questions:",
       error
     );
 
-    throw error;
+    questions = [];
+
+    return;
+
   }
 
 
-  questions = data || [];
+  questions =
+    data || [];
 
 }
 
@@ -1006,23 +1325,30 @@ async function loadCategories() {
     await supabase
       .from(TABLES.categories)
       .select("*")
-      .order("name", {
-        ascending: true
-      });
+      .order(
+        "name",
+        {
+          ascending: true
+        }
+      );
 
 
   if (error) {
 
     console.error(
-      "Load categories:",
+      "Categories:",
       error
     );
 
-    throw error;
+    categories = [];
+
+    return;
+
   }
 
 
-  categories = data || [];
+  categories =
+    data || [];
 
 }
 
@@ -1044,19 +1370,15 @@ async function loadSettings() {
 
   if (error) {
 
-    console.error(
-      "Load settings:",
+    console.warn(
+      "Settings:",
       error
     );
-
-    /*
-     * لو جدول settings غير موجود
-     * لا نوقف الموقع بالكامل
-     */
 
     siteSettings = {};
 
     return;
+
   }
 
 
@@ -1066,9 +1388,13 @@ async function loadSettings() {
   (data || []).forEach(
     (item) => {
 
-      if (item.key) {
+      if (
+        item.key
+      ) {
 
-        siteSettings[item.key] =
+        siteSettings[
+          item.key
+        ] =
           item.value;
 
       }
@@ -1080,20 +1406,24 @@ async function loadSettings() {
 
 
 /* =========================================================
-   RENDER CHAPTERS
+   CHAPTERS
    ========================================================= */
 
 function renderChapters() {
 
-  if (!chaptersGrid) return;
+  if (!chaptersGrid)
+    return;
 
 
-  chaptersGrid.innerHTML = "";
+  chaptersGrid.innerHTML =
+    "";
 
 
-  if (!chapters.length) {
+  if (
+    !chapters.length
+  ) {
 
-    chaptersEmpty?.classList.remove(
+    chaptersEmpty.classList.remove(
       "hidden"
     );
 
@@ -1102,7 +1432,7 @@ function renderChapters() {
   }
 
 
-  chaptersEmpty?.classList.add(
+  chaptersEmpty.classList.add(
     "hidden"
   );
 
@@ -1111,29 +1441,31 @@ function renderChapters() {
     (chapter, index) => {
 
       const card =
-        document.createElement("article");
+        document.createElement(
+          "article"
+        );
 
 
       card.className =
-        "chapter-card reveal";
-
-
-      card.style.animationDelay =
-        `${index * 0.05}s`;
+        "chapter-card";
 
 
       const count =
         questions.filter(
           (question) =>
-            question.chapter_id === chapter.id
+            question.chapter_id ===
+            chapter.id
         ).length;
 
 
       card.innerHTML = `
 
         <div class="chapter-card-number">
-          ${String(index + 1).padStart(2, "0")}
+          ${String(
+            index + 1
+          ).padStart(2, "0")}
         </div>
+
 
         <div class="chapter-card-content">
 
@@ -1141,38 +1473,28 @@ function renderChapters() {
             CHAPTER ${index + 1}
           </span>
 
+
           <h3>
             ${escapeHTML(
-              chapter.name || "Untitled Chapter"
+              chapter.name ||
+              "Chapter"
             )}
           </h3>
+
 
           <p>
             ${escapeHTML(
               chapter.description ||
-              "اضغط لعرض الأسئلة الموجودة في هذا الفصل."
+              ""
             )}
           </p>
 
-          <span class="chapter-question-count">
+
+          <span>
             ${count} سؤال
           </span>
 
         </div>
-
-        ${
-          chapter.cover_image_url
-            ? `
-              <div class="chapter-card-image">
-                <img
-                  src="${escapeAttribute(
-                    chapter.cover_image_url
-                  )}"
-                  alt="">
-              </div>
-            `
-            : ""
-        }
 
       `;
 
@@ -1189,7 +1511,9 @@ function renderChapters() {
       );
 
 
-      chaptersGrid.appendChild(card);
+      chaptersGrid.appendChild(
+        card
+      );
 
     }
   );
@@ -1202,18 +1526,19 @@ function renderChapters() {
    ========================================================= */
 
 function openChapter(
-  chapterId,
+  id,
   scroll = true
 ) {
 
   const chapter =
     chapters.find(
       (item) =>
-        item.id === chapterId
+        item.id === id
     );
 
 
-  if (!chapter) return;
+  if (!chapter)
+    return;
 
 
   selectedChapter =
@@ -1230,28 +1555,28 @@ function openChapter(
     "";
 
 
-  const chapterQuestions =
+  const list =
     questions.filter(
       (question) =>
-        question.chapter_id === chapter.id
+        question.chapter_id ===
+        chapter.id
     );
 
 
   renderQuestions(
-    chapterQuestions
+    list
   );
 
 
-  questionsSection?.classList.remove(
+  questionsSection.classList.remove(
     "hidden"
   );
 
 
   if (scroll) {
 
-    questionsSection?.scrollIntoView({
-      behavior: "smooth",
-      block: "start"
+    questionsSection.scrollIntoView({
+      behavior: "smooth"
     });
 
   }
@@ -1260,20 +1585,20 @@ function openChapter(
 
 
 /* =========================================================
-   RENDER QUESTIONS
+   QUESTIONS
    ========================================================= */
 
-function renderQuestions(list) {
+function renderQuestions(
+  list
+) {
 
-  if (!questionsList) return;
-
-
-  questionsList.innerHTML = "";
+  questionsList.innerHTML =
+    "";
 
 
   if (!list.length) {
 
-    questionsEmpty?.classList.remove(
+    questionsEmpty.classList.remove(
       "hidden"
     );
 
@@ -1282,7 +1607,7 @@ function renderQuestions(list) {
   }
 
 
-  questionsEmpty?.classList.add(
+  questionsEmpty.classList.add(
     "hidden"
   );
 
@@ -1291,17 +1616,21 @@ function renderQuestions(list) {
     (question, index) => {
 
       const article =
-        document.createElement("article");
+        document.createElement(
+          "article"
+        );
 
 
       article.className =
-        "question-card reveal";
+        "question-card";
 
 
       article.innerHTML = `
 
         <div class="question-number">
-          ${String(index + 1).padStart(2, "0")}
+          ${String(
+            index + 1
+          ).padStart(2, "0")}
         </div>
 
 
@@ -1312,22 +1641,9 @@ function renderQuestions(list) {
             ${
               question.categories?.name
                 ? `
-                  <span class="question-category">
-                    ${escapeHTML(
-                      question.categories.name
-                    )}
-                  </span>
-                `
-                : ""
-            }
-
-
-            ${
-              question.chapters?.name
-                ? `
                   <span>
                     ${escapeHTML(
-                      question.chapters.name
+                      question.categories.name
                     )}
                   </span>
                 `
@@ -1347,7 +1663,8 @@ function renderQuestions(list) {
 
           <div class="question-text">
             ${formatText(
-              question.question || ""
+              question.question ||
+              ""
             )}
           </div>
 
@@ -1372,15 +1689,9 @@ function renderQuestions(list) {
 
           ${
             question.video_url
-              ? `
-                <div class="question-video">
-
-                  ${buildVideoEmbed(
-                    question.video_url
-                  )}
-
-                </div>
-              `
+              ? buildVideo(
+                  question.video_url
+                )
               : ""
           }
 
@@ -1451,28 +1762,55 @@ function renderQuestions(list) {
         );
 
 
-      copyButton?.addEventListener(
+      copyButton.addEventListener(
         "click",
         async () => {
 
           const text =
-            buildCopyText(question);
+            [
+              question.title,
+              "",
+              question.question,
+              "",
+              question.answer
+                ? `الإجابة:\n${question.answer}`
+                : "",
+              "",
+              question.explanation
+                ? `الشرح:\n${question.explanation}`
+                : ""
+            ]
+              .filter(Boolean)
+              .join("\n");
 
 
-          await copyText(text);
+          try {
 
+            await navigator.clipboard.writeText(
+              text
+            );
 
-          copyButton.textContent =
-            "COPIED";
+            copyButton.textContent =
+              "COPIED";
 
+            setTimeout(
+              () => {
 
-          setTimeout(
-            () => {
-              copyButton.textContent =
-                "COPY QUESTION";
-            },
-            1500
-          );
+                copyButton.textContent =
+                  "COPY QUESTION";
+
+              },
+              1500
+            );
+
+          } catch {
+
+            showToast(
+              "تعذر نسخ السؤال.",
+              "error"
+            );
+
+          }
 
         }
       );
@@ -1489,189 +1827,91 @@ function renderQuestions(list) {
 
 
 /* =========================================================
-   COPY QUESTION
-   ========================================================= */
-
-function buildCopyText(question) {
-
-  return [
-    question.title || "",
-    "",
-    question.question || "",
-    "",
-    question.answer
-      ? `الإجابة:\n${question.answer}`
-      : "",
-    "",
-    question.explanation
-      ? `الشرح:\n${question.explanation}`
-      : ""
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-}
-
-
-async function copyText(text) {
-
-  try {
-
-    if (
-      navigator.clipboard &&
-      window.isSecureContext
-    ) {
-
-      await navigator.clipboard.writeText(
-        text
-      );
-
-      showToast(
-        "تم نسخ السؤال.",
-        "success"
-      );
-
-      return;
-
-    }
-
-    fallbackCopy(text);
-
-  } catch (error) {
-
-    console.error(error);
-
-    fallbackCopy(text);
-
-  }
-
-}
-
-
-function fallbackCopy(text) {
-
-  const textarea =
-    document.createElement("textarea");
-
-
-  textarea.value = text;
-
-  textarea.style.position =
-    "fixed";
-
-  textarea.style.opacity =
-    "0";
-
-
-  document.body.appendChild(
-    textarea
-  );
-
-
-  textarea.select();
-
-
-  try {
-
-    document.execCommand("copy");
-
-    showToast(
-      "تم نسخ السؤال.",
-      "success"
-    );
-
-  } catch (error) {
-
-    showToast(
-      "تعذر نسخ السؤال.",
-      "error"
-    );
-
-  }
-
-
-  textarea.remove();
-
-}
-
-
-/* =========================================================
    SEARCH
    ========================================================= */
 
 function renderSearchResults() {
 
-  if (!searchResults) return;
+  if (
+    !searchResults
+  )
+    return;
 
 
   const query =
-    (searchInput?.value || "")
+    (
+      searchInput?.value ||
+      ""
+    )
       .trim()
       .toLowerCase();
 
 
-  const categoryId =
-    categoryFilter?.value || "";
+  const category =
+    categoryFilter?.value ||
+    "";
 
 
-  let results =
+  if (
+    !query &&
+    !category
+  ) {
+
+    searchResults.innerHTML =
+      "";
+
+    searchEmpty.classList.add(
+      "hidden"
+    );
+
+    return;
+
+  }
+
+
+  const results =
     questions.filter(
       (question) => {
 
-        const searchable = [
-          question.title,
-          question.question,
-          question.answer,
-          question.explanation,
-          question.chapters?.name,
-          question.categories?.name
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-
-
-        const matchesQuery =
-          !query ||
-          searchable.includes(query);
-
-
-        const matchesCategory =
-          !categoryId ||
-          String(
-            question.category_id
-          ) === String(categoryId);
+        const text =
+          [
+            question.title,
+            question.question,
+            question.answer,
+            question.explanation,
+            question.chapters?.name,
+            question.categories?.name
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
 
 
         return (
-          matchesQuery &&
-          matchesCategory
+          (
+            !query ||
+            text.includes(query)
+          ) &&
+          (
+            !category ||
+            String(
+              question.category_id
+            ) ===
+            String(category)
+          )
         );
 
       }
     );
 
 
-  searchResults.innerHTML = "";
-
-
-  if (
-    !query &&
-    !categoryId
-  ) {
-
-    searchEmpty?.classList.add(
-      "hidden"
-    );
-
-    return;
-
-  }
+  searchResults.innerHTML =
+    "";
 
 
   if (!results.length) {
 
-    searchEmpty?.classList.remove(
+    searchEmpty.classList.remove(
       "hidden"
     );
 
@@ -1680,7 +1920,7 @@ function renderSearchResults() {
   }
 
 
-  searchEmpty?.classList.add(
+  searchEmpty.classList.add(
     "hidden"
   );
 
@@ -1689,7 +1929,9 @@ function renderSearchResults() {
     (question) => {
 
       const item =
-        document.createElement("article");
+        document.createElement(
+          "article"
+        );
 
 
       item.className =
@@ -1699,12 +1941,10 @@ function renderSearchResults() {
       item.innerHTML = `
 
         <span class="section-label">
-          ${
-            escapeHTML(
-              question.chapters?.name ||
-              "ARCHIVE"
-            )
-          }
+          ${escapeHTML(
+            question.chapters?.name ||
+            "ARCHIVE"
+          )}
         </span>
 
 
@@ -1719,24 +1959,12 @@ function renderSearchResults() {
         <p>
           ${escapeHTML(
             truncate(
-              question.question || "",
+              question.question ||
+              "",
               220
             )
           )}
         </p>
-
-
-        ${
-          question.categories?.name
-            ? `
-              <span class="question-category">
-                ${escapeHTML(
-                  question.categories.name
-                )}
-              </span>
-            `
-            : ""
-        }
 
       `;
 
@@ -1745,9 +1973,15 @@ function renderSearchResults() {
         "click",
         () => {
 
-          openQuestionFromSearch(
-            question
-          );
+          if (
+            question.chapter_id
+          ) {
+
+            openChapter(
+              question.chapter_id
+            );
+
+          }
 
         }
       );
@@ -1764,70 +1998,15 @@ function renderSearchResults() {
 
 
 /* =========================================================
-   OPEN QUESTION FROM SEARCH
-   ========================================================= */
-
-function openQuestionFromSearch(
-  question
-) {
-
-  if (
-    question.chapter_id
-  ) {
-
-    openChapter(
-      question.chapter_id,
-      true
-    );
-
-
-    setTimeout(
-      () => {
-
-        const cards =
-          $$(".question-card");
-
-
-        const index =
-          questions
-            .filter(
-              (item) =>
-                item.chapter_id ===
-                question.chapter_id
-            )
-            .findIndex(
-              (item) =>
-                item.id === question.id
-            );
-
-
-        if (
-          cards[index]
-        ) {
-
-          cards[index].scrollIntoView({
-            behavior: "smooth",
-            block: "center"
-          });
-
-        }
-
-      },
-      250
-    );
-
-  }
-
-}
-
-
-/* =========================================================
    CATEGORIES
    ========================================================= */
 
 function renderCategories() {
 
-  if (!categoryFilter) return;
+  if (
+    !categoryFilter
+  )
+    return;
 
 
   categoryFilter.innerHTML = `
@@ -1841,7 +2020,9 @@ function renderCategories() {
     (category) => {
 
       const option =
-        document.createElement("option");
+        document.createElement(
+          "option"
+        );
 
 
       option.value =
@@ -1866,7 +2047,7 @@ function renderCategories() {
    CONTACT
    ========================================================= */
 
-function updateContactUI() {
+function updateContact() {
 
   const number =
     getSetting(
@@ -1875,14 +2056,16 @@ function updateContactUI() {
     );
 
 
-  const template =
+  const message =
     getSetting(
       "whatsapp_template",
       "مرحبًا، أحتاج إلى المساعدة في Question Archive."
     );
 
 
-  if (contactNumberLabel) {
+  if (
+    contactNumberLabel
+  ) {
 
     contactNumberLabel.textContent =
       number;
@@ -1890,23 +2073,22 @@ function updateContactUI() {
   }
 
 
-  generalWhatsApp?.addEventListener(
-    "click",
-    () => {
+  if (
+    generalWhatsApp
+  ) {
 
-      openWhatsApp(
-        number,
-        template
-      );
+    generalWhatsApp.dataset.number =
+      number;
 
-    },
-    {
-      once: true
-    }
-  );
+    generalWhatsApp.dataset.message =
+      message;
+
+  }
 
 
-  if (whatsappNumber) {
+  if (
+    whatsappNumber
+  ) {
 
     whatsappNumber.value =
       number;
@@ -1914,73 +2096,47 @@ function updateContactUI() {
   }
 
 
-  if (whatsappTemplate) {
-
-    whatsappTemplate.value =
-      template;
-
-  }
-
-}
-
-
-function getSetting(
-  key,
-  fallback = ""
-) {
-
-  const value =
-    siteSettings[key];
-
-
   if (
-    value === undefined ||
-    value === null ||
-    value === ""
+    whatsappTemplate
   ) {
 
-    return fallback;
+    whatsappTemplate.value =
+      message;
 
   }
-
-
-  return value;
 
 }
 
 
-function openWhatsApp(
-  number,
-  message
-) {
+function openGeneralWhatsApp() {
 
-  const cleanNumber =
-    String(number || "")
-      .replace(/\D/g, "");
+  const number =
+    generalWhatsApp.dataset.number ||
+    "+201213707524";
 
 
-  if (!cleanNumber) {
+  const message =
+    generalWhatsApp.dataset.message ||
+    "مرحبًا، أحتاج إلى المساعدة.";
 
-    showToast(
-      "رقم WhatsApp غير مضبوط.",
-      "error"
-    );
 
+  const clean =
+    String(number)
+      .replace(
+        /\D/g,
+        ""
+      );
+
+
+  if (!clean)
     return;
-
-  }
-
-
-  const url =
-    `https://wa.me/${cleanNumber}?text=${
-      encodeURIComponent(message)
-    }`;
 
 
   window.open(
-    url,
-    "_blank",
-    "noopener,noreferrer"
+    `https://wa.me/${clean}?text=${encodeURIComponent(
+      message
+    )}`,
+    "_blank"
   );
 
 }
@@ -1995,7 +2151,7 @@ function openAdminDashboard() {
   if (!isAdmin()) {
 
     showToast(
-      "هذه المنطقة متاحة للأدمن فقط.",
+      "هذه المنطقة للأدمن فقط.",
       "error"
     );
 
@@ -2004,12 +2160,12 @@ function openAdminDashboard() {
   }
 
 
-  adminOverlay?.classList.remove(
+  adminOverlay.classList.remove(
     "hidden"
   );
 
 
-  adminOverlay?.setAttribute(
+  adminOverlay.setAttribute(
     "aria-hidden",
     "false"
   );
@@ -2022,12 +2178,12 @@ function openAdminDashboard() {
 
 function closeAdminDashboard() {
 
-  adminOverlay?.classList.add(
+  adminOverlay.classList.add(
     "hidden"
   );
 
 
-  adminOverlay?.setAttribute(
+  adminOverlay.setAttribute(
     "aria-hidden",
     "true"
   );
@@ -2040,7 +2196,7 @@ function closeAdminDashboard() {
    ========================================================= */
 
 function switchAdminTab(
-  tabName
+  name
 ) {
 
   adminTabs.forEach(
@@ -2049,7 +2205,7 @@ function switchAdminTab(
       button.classList.toggle(
         "active",
         button.dataset.adminTab ===
-          tabName
+          name
       );
 
     }
@@ -2062,7 +2218,7 @@ function switchAdminTab(
       panel.classList.toggle(
         "active",
         panel.dataset.adminPanel ===
-          tabName
+          name
       );
 
     }
@@ -2077,10 +2233,21 @@ function switchAdminTab(
 
 async function renderAdminLists() {
 
-  if (!isAdmin()) return;
+  if (!isAdmin())
+    return;
 
 
-  renderAdminStats();
+  statChapters.textContent =
+    chapters.length;
+
+
+  statQuestions.textContent =
+    questions.length;
+
+
+  statCategories.textContent =
+    categories.length;
+
 
   renderAdminChapters();
 
@@ -2088,39 +2255,7 @@ async function renderAdminLists() {
 
   renderAdminCategories();
 
-  loadContactSettingsIntoForm();
-
-}
-
-
-/* =========================================================
-   ADMIN STATS
-   ========================================================= */
-
-function renderAdminStats() {
-
-  if (statChapters) {
-
-    statChapters.textContent =
-      chapters.length;
-
-  }
-
-
-  if (statQuestions) {
-
-    statQuestions.textContent =
-      questions.length;
-
-  }
-
-
-  if (statCategories) {
-
-    statCategories.textContent =
-      categories.length;
-
-  }
+  updateContact();
 
 }
 
@@ -2131,19 +2266,14 @@ function renderAdminStats() {
 
 function renderAdminChapters() {
 
-  if (!adminChaptersList) return;
-
-
-  adminChaptersList.innerHTML = "";
+  adminChaptersList.innerHTML =
+    "";
 
 
   if (!chapters.length) {
 
-    adminChaptersList.innerHTML = `
-      <div class="admin-empty">
-        لا توجد Chapters.
-      </div>
-    `;
+    adminChaptersList.innerHTML =
+      "<p>لا توجد Chapters.</p>";
 
     return;
 
@@ -2151,10 +2281,12 @@ function renderAdminChapters() {
 
 
   chapters.forEach(
-    (chapter, index) => {
+    (chapter) => {
 
       const row =
-        document.createElement("div");
+        document.createElement(
+          "div"
+        );
 
 
       row.className =
@@ -2165,19 +2297,16 @@ function renderAdminChapters() {
 
         <div class="admin-list-info">
 
-          <span class="section-label">
-            #${index + 1}
-          </span>
-
           <h4>
             ${escapeHTML(
-              chapter.name || ""
+              chapter.name
             )}
           </h4>
 
           <p>
             ${escapeHTML(
-              chapter.description || ""
+              chapter.description ||
+              ""
             )}
           </p>
 
@@ -2187,14 +2316,13 @@ function renderAdminChapters() {
         <div class="admin-list-actions">
 
           <button
-            class="small-button edit-chapter"
+            class="small-button edit"
             type="button">
             EDIT
           </button>
 
-
           <button
-            class="small-button danger delete-chapter"
+            class="small-button danger delete"
             type="button">
             DELETE
           </button>
@@ -2204,37 +2332,33 @@ function renderAdminChapters() {
       `;
 
 
-      row
-        .querySelector(
-          ".edit-chapter"
-        )
-        ?.addEventListener(
-          "click",
-          () => {
+      row.querySelector(
+        ".edit"
+      ).addEventListener(
+        "click",
+        () => {
 
-            openEditor(
-              "chapter",
-              chapter.id
-            );
+          openEditor(
+            "chapter",
+            chapter.id
+          );
 
-          }
-        );
+        }
+      );
 
 
-      row
-        .querySelector(
-          ".delete-chapter"
-        )
-        ?.addEventListener(
-          "click",
-          () => {
+      row.querySelector(
+        ".delete"
+      ).addEventListener(
+        "click",
+        () => {
 
-            deleteChapter(
-              chapter.id
-            );
+          deleteChapter(
+            chapter.id
+          );
 
-          }
-        );
+        }
+      );
 
 
       adminChaptersList.appendChild(
@@ -2253,19 +2377,14 @@ function renderAdminChapters() {
 
 function renderAdminQuestions() {
 
-  if (!adminQuestionsList) return;
-
-
-  adminQuestionsList.innerHTML = "";
+  adminQuestionsList.innerHTML =
+    "";
 
 
   if (!questions.length) {
 
-    adminQuestionsList.innerHTML = `
-      <div class="admin-empty">
-        لا توجد Questions.
-      </div>
-    `;
+    adminQuestionsList.innerHTML =
+      "<p>لا توجد Questions.</p>";
 
     return;
 
@@ -2276,7 +2395,9 @@ function renderAdminQuestions() {
     (question) => {
 
       const row =
-        document.createElement("div");
+        document.createElement(
+          "div"
+        );
 
 
       row.className =
@@ -2286,15 +2407,6 @@ function renderAdminQuestions() {
       row.innerHTML = `
 
         <div class="admin-list-info">
-
-          <span class="section-label">
-            ${
-              escapeHTML(
-                question.chapters?.name ||
-                "NO CHAPTER"
-              )
-            }
-          </span>
 
           <h4>
             ${escapeHTML(
@@ -2306,8 +2418,9 @@ function renderAdminQuestions() {
           <p>
             ${escapeHTML(
               truncate(
-                question.question || "",
-                180
+                question.question ||
+                "",
+                150
               )
             )}
           </p>
@@ -2318,14 +2431,13 @@ function renderAdminQuestions() {
         <div class="admin-list-actions">
 
           <button
-            class="small-button edit-question"
+            class="small-button edit"
             type="button">
             EDIT
           </button>
 
-
           <button
-            class="small-button danger delete-question"
+            class="small-button danger delete"
             type="button">
             DELETE
           </button>
@@ -2335,37 +2447,33 @@ function renderAdminQuestions() {
       `;
 
 
-      row
-        .querySelector(
-          ".edit-question"
-        )
-        ?.addEventListener(
-          "click",
-          () => {
+      row.querySelector(
+        ".edit"
+      ).addEventListener(
+        "click",
+        () => {
 
-            openEditor(
-              "question",
-              question.id
-            );
+          openEditor(
+            "question",
+            question.id
+          );
 
-          }
-        );
+        }
+      );
 
 
-      row
-        .querySelector(
-          ".delete-question"
-        )
-        ?.addEventListener(
-          "click",
-          () => {
+      row.querySelector(
+        ".delete"
+      ).addEventListener(
+        "click",
+        () => {
 
-            deleteQuestion(
-              question.id
-            );
+          deleteQuestion(
+            question.id
+          );
 
-          }
-        );
+        }
+      );
 
 
       adminQuestionsList.appendChild(
@@ -2384,19 +2492,14 @@ function renderAdminQuestions() {
 
 function renderAdminCategories() {
 
-  if (!adminCategoriesList) return;
-
-
-  adminCategoriesList.innerHTML = "";
+  adminCategoriesList.innerHTML =
+    "";
 
 
   if (!categories.length) {
 
-    adminCategoriesList.innerHTML = `
-      <div class="admin-empty">
-        لا توجد Categories.
-      </div>
-    `;
+    adminCategoriesList.innerHTML =
+      "<p>لا توجد Categories.</p>";
 
     return;
 
@@ -2407,7 +2510,9 @@ function renderAdminCategories() {
     (category) => {
 
       const row =
-        document.createElement("div");
+        document.createElement(
+          "div"
+        );
 
 
       row.className =
@@ -2418,19 +2523,16 @@ function renderAdminCategories() {
 
         <div class="admin-list-info">
 
-          <span class="section-label">
-            CATEGORY
-          </span>
-
           <h4>
             ${escapeHTML(
-              category.name || ""
+              category.name
             )}
           </h4>
 
           <p>
             ${escapeHTML(
-              category.description || ""
+              category.description ||
+              ""
             )}
           </p>
 
@@ -2440,14 +2542,13 @@ function renderAdminCategories() {
         <div class="admin-list-actions">
 
           <button
-            class="small-button edit-category"
+            class="small-button edit"
             type="button">
             EDIT
           </button>
 
-
           <button
-            class="small-button danger delete-category"
+            class="small-button danger delete"
             type="button">
             DELETE
           </button>
@@ -2457,37 +2558,33 @@ function renderAdminCategories() {
       `;
 
 
-      row
-        .querySelector(
-          ".edit-category"
-        )
-        ?.addEventListener(
-          "click",
-          () => {
+      row.querySelector(
+        ".edit"
+      ).addEventListener(
+        "click",
+        () => {
 
-            openEditor(
-              "category",
-              category.id
-            );
+          openEditor(
+            "category",
+            category.id
+          );
 
-          }
-        );
+        }
+      );
 
 
-      row
-        .querySelector(
-          ".delete-category"
-        )
-        ?.addEventListener(
-          "click",
-          () => {
+      row.querySelector(
+        ".delete"
+      ).addEventListener(
+        "click",
+        () => {
 
-            deleteCategory(
-              category.id
-            );
+          deleteCategory(
+            category.id
+          );
 
-          }
-        );
+        }
+      );
 
 
       adminCategoriesList.appendChild(
@@ -2501,7 +2598,7 @@ function renderAdminCategories() {
 
 
 /* =========================================================
-   ADD / EDIT CHAPTER
+   EDITOR
    ========================================================= */
 
 function openEditor(
@@ -2509,41 +2606,35 @@ function openEditor(
   id = null
 ) {
 
-  if (!isAdmin()) {
-
-    showToast(
-      "Admin only.",
-      "error"
-    );
-
+  if (!isAdmin())
     return;
 
-  }
+
+  editorType =
+    type;
+
+  editingId =
+    id;
 
 
-  editorType = type;
-
-  editingId = id;
-
-
-  if (!editorModal || !editorForm) {
-    return;
-  }
+  let item =
+    null;
 
 
-  let item = null;
-
-
-  if (type === "chapter") {
+  if (
+    type === "chapter"
+  ) {
 
     item =
       chapters.find(
-        (chapter) =>
-          chapter.id === id
+        (x) =>
+          x.id === id
       );
 
+
     editorKicker.textContent =
-      "CHAPTER EDITOR";
+      "CHAPTER";
+
 
     editorTitle.textContent =
       id
@@ -2553,7 +2644,7 @@ function openEditor(
 
     editorForm.innerHTML = `
 
-      <label for="editorName">
+      <label>
         CHAPTER NAME
       </label>
 
@@ -2566,19 +2657,19 @@ function openEditor(
         required>
 
 
-      <label for="editorDescription">
+      <label>
         DESCRIPTION
       </label>
 
       <textarea
         id="editorDescription"
-        rows="5"
-        placeholder="وصف الفصل...">${escapeHTML(
-          item?.description || ""
+        rows="5">${escapeHTML(
+          item?.description ||
+          ""
         )}</textarea>
 
 
-      <label for="editorCover">
+      <label>
         COVER IMAGE URL
       </label>
 
@@ -2586,12 +2677,12 @@ function openEditor(
         id="editorCover"
         type="url"
         value="${escapeAttribute(
-          item?.cover_image_url || ""
-        )}"
-        placeholder="https://...">
+          item?.cover_image_url ||
+          ""
+        )}">
 
 
-      <label for="editorSort">
+      <label>
         SORT ORDER
       </label>
 
@@ -2599,7 +2690,8 @@ function openEditor(
         id="editorSort"
         type="number"
         value="${Number(
-          item?.sort_order || 0
+          item?.sort_order ||
+          0
         )}">
 
 
@@ -2616,16 +2708,20 @@ function openEditor(
   }
 
 
-  if (type === "category") {
+  if (
+    type === "category"
+  ) {
 
     item =
       categories.find(
-        (category) =>
-          category.id === id
+        (x) =>
+          x.id === id
       );
 
+
     editorKicker.textContent =
-      "CATEGORY EDITOR";
+      "CATEGORY";
+
 
     editorTitle.textContent =
       id
@@ -2635,7 +2731,7 @@ function openEditor(
 
     editorForm.innerHTML = `
 
-      <label for="editorName">
+      <label>
         CATEGORY NAME
       </label>
 
@@ -2648,14 +2744,15 @@ function openEditor(
         required>
 
 
-      <label for="editorDescription">
+      <label>
         DESCRIPTION
       </label>
 
       <textarea
         id="editorDescription"
         rows="5">${escapeHTML(
-          item?.description || ""
+          item?.description ||
+          ""
         )}</textarea>
 
 
@@ -2672,16 +2769,20 @@ function openEditor(
   }
 
 
-  if (type === "question") {
+  if (
+    type === "question"
+  ) {
 
     item =
       questions.find(
-        (question) =>
-          question.id === id
+        (x) =>
+          x.id === id
       );
 
+
     editorKicker.textContent =
-      "QUESTION EDITOR";
+      "QUESTION";
+
 
     editorTitle.textContent =
       id
@@ -2691,7 +2792,7 @@ function openEditor(
 
     editorForm.innerHTML = `
 
-      <label for="editorTitleInput">
+      <label>
         QUESTION TITLE
       </label>
 
@@ -2704,7 +2805,7 @@ function openEditor(
         required>
 
 
-      <label for="editorChapter">
+      <label>
         CHAPTER
       </label>
 
@@ -2719,15 +2820,19 @@ function openEditor(
         ${chapters
           .map(
             (chapter) => `
+
               <option
                 value="${escapeAttribute(
                   chapter.id
                 )}"
                 ${
                   String(
-                    item?.chapter_id || ""
+                    item?.chapter_id ||
+                    ""
                   ) ===
-                  String(chapter.id)
+                  String(
+                    chapter.id
+                  )
                     ? "selected"
                     : ""
                 }>
@@ -2737,6 +2842,7 @@ function openEditor(
                 )}
 
               </option>
+
             `
           )
           .join("")}
@@ -2744,11 +2850,12 @@ function openEditor(
       </select>
 
 
-      <label for="editorCategory">
+      <label>
         CATEGORY
       </label>
 
-      <select id="editorCategory">
+      <select
+        id="editorCategory">
 
         <option value="">
           بدون تصنيف
@@ -2757,15 +2864,19 @@ function openEditor(
         ${categories
           .map(
             (category) => `
+
               <option
                 value="${escapeAttribute(
                   category.id
                 )}"
                 ${
                   String(
-                    item?.category_id || ""
+                    item?.category_id ||
+                    ""
                   ) ===
-                  String(category.id)
+                  String(
+                    category.id
+                  )
                     ? "selected"
                     : ""
                 }>
@@ -2775,6 +2886,7 @@ function openEditor(
                 )}
 
               </option>
+
             `
           )
           .join("")}
@@ -2782,7 +2894,7 @@ function openEditor(
       </select>
 
 
-      <label for="editorQuestion">
+      <label>
         QUESTION
       </label>
 
@@ -2790,33 +2902,36 @@ function openEditor(
         id="editorQuestion"
         rows="7"
         required>${escapeHTML(
-          item?.question || ""
+          item?.question ||
+          ""
         )}</textarea>
 
 
-      <label for="editorAnswer">
+      <label>
         ANSWER
       </label>
 
       <textarea
         id="editorAnswer"
-        rows="6">${escapeHTML(
-          item?.answer || ""
+        rows="5">${escapeHTML(
+          item?.answer ||
+          ""
         )}</textarea>
 
 
-      <label for="editorExplanation">
+      <label>
         EXPLANATION
       </label>
 
       <textarea
         id="editorExplanation"
         rows="7">${escapeHTML(
-          item?.explanation || ""
+          item?.explanation ||
+          ""
         )}</textarea>
 
 
-      <label for="editorImage">
+      <label>
         IMAGE URL
       </label>
 
@@ -2824,12 +2939,12 @@ function openEditor(
         id="editorImage"
         type="url"
         value="${escapeAttribute(
-          item?.image_url || ""
-        )}"
-        placeholder="https://...">
+          item?.image_url ||
+          ""
+        )}">
 
 
-      <label for="editorVideo">
+      <label>
         VIDEO URL
       </label>
 
@@ -2837,12 +2952,12 @@ function openEditor(
         id="editorVideo"
         type="url"
         value="${escapeAttribute(
-          item?.video_url || ""
-        )}"
-        placeholder="YouTube URL أو رابط الفيديو">
+          item?.video_url ||
+          ""
+        )}">
 
 
-      <label for="editorSort">
+      <label>
         SORT ORDER
       </label>
 
@@ -2850,7 +2965,8 @@ function openEditor(
         id="editorSort"
         type="number"
         value="${Number(
-          item?.sort_order || 0
+          item?.sort_order ||
+          0
         )}">
 
 
@@ -2870,6 +2986,7 @@ function openEditor(
   editorModal.classList.remove(
     "hidden"
   );
+
 
   editorModal.setAttribute(
     "aria-hidden",
@@ -2895,35 +3012,32 @@ function openEditor(
 
 async function saveEditor() {
 
-  if (!isAdmin()) {
-
-    showToast(
-      "Admin only.",
-      "error"
-    );
-
-    return;
-
-  }
-
-
   try {
 
-    if (editorType === "chapter") {
+    if (
+      editorType ===
+      "chapter"
+    ) {
 
       await saveChapter();
 
     }
 
 
-    if (editorType === "category") {
+    if (
+      editorType ===
+      "category"
+    ) {
 
       await saveCategory();
 
     }
 
 
-    if (editorType === "question") {
+    if (
+      editorType ===
+      "question"
+    ) {
 
       await saveQuestion();
 
@@ -2932,22 +3046,27 @@ async function saveEditor() {
 
     closeEditorModal();
 
+
     await refreshPublicContent();
+
 
     await renderAdminLists();
 
 
     showToast(
-      "تم حفظ التعديلات.",
+      "تم الحفظ بنجاح.",
       "success"
     );
 
   } catch (error) {
 
-    console.error(error);
+    console.error(
+      error
+    );
 
     showToast(
-      getDatabaseError(error),
+      error.message ||
+      "حدث خطأ أثناء الحفظ.",
       "error"
     );
 
@@ -2963,20 +3082,28 @@ async function saveEditor() {
 async function saveChapter() {
 
   const name =
-    $("#editorName")?.value.trim();
+    $("#editorName")
+      .value
+      .trim();
 
 
   const description =
-    $("#editorDescription")?.value.trim();
+    $("#editorDescription")
+      .value
+      .trim();
 
 
   const cover =
-    $("#editorCover")?.value.trim();
+    $("#editorCover")
+      .value
+      .trim();
 
 
-  const sortOrder =
+  const sort =
     Number(
-      $("#editorSort")?.value || 0
+      $("#editorSort")
+        .value ||
+      0
     );
 
 
@@ -2994,13 +3121,15 @@ async function saveChapter() {
     name,
 
     description:
-      description || null,
+      description ||
+      null,
 
     cover_image_url:
-      cover || null,
+      cover ||
+      null,
 
     sort_order:
-      sortOrder
+      sort
 
   };
 
@@ -3011,12 +3140,20 @@ async function saveChapter() {
       error
     } =
       await supabase
-        .from(TABLES.chapters)
-        .update(payload)
-        .eq("id", editingId);
+        .from(
+          TABLES.chapters
+        )
+        .update(
+          payload
+        )
+        .eq(
+          "id",
+          editingId
+        );
 
 
-    if (error) throw error;
+    if (error)
+      throw error;
 
   } else {
 
@@ -3028,11 +3165,16 @@ async function saveChapter() {
       error
     } =
       await supabase
-        .from(TABLES.chapters)
-        .insert(payload);
+        .from(
+          TABLES.chapters
+        )
+        .insert(
+          payload
+        );
 
 
-    if (error) throw error;
+    if (error)
+      throw error;
 
   }
 
@@ -3046,11 +3188,15 @@ async function saveChapter() {
 async function saveCategory() {
 
   const name =
-    $("#editorName")?.value.trim();
+    $("#editorName")
+      .value
+      .trim();
 
 
   const description =
-    $("#editorDescription")?.value.trim();
+    $("#editorDescription")
+      .value
+      .trim();
 
 
   if (!name) {
@@ -3067,7 +3213,8 @@ async function saveCategory() {
     name,
 
     description:
-      description || null
+      description ||
+      null
 
   };
 
@@ -3078,12 +3225,20 @@ async function saveCategory() {
       error
     } =
       await supabase
-        .from(TABLES.categories)
-        .update(payload)
-        .eq("id", editingId);
+        .from(
+          TABLES.categories
+        )
+        .update(
+          payload
+        )
+        .eq(
+          "id",
+          editingId
+        );
 
 
-    if (error) throw error;
+    if (error)
+      throw error;
 
   } else {
 
@@ -3095,11 +3250,16 @@ async function saveCategory() {
       error
     } =
       await supabase
-        .from(TABLES.categories)
-        .insert(payload);
+        .from(
+          TABLES.categories
+        )
+        .insert(
+          payload
+        );
 
 
-    if (error) throw error;
+    if (error)
+      throw error;
 
   }
 
@@ -3114,75 +3274,75 @@ async function saveQuestion() {
 
   const title =
     $("#editorTitleInput")
-      ?.value.trim();
+      .value
+      .trim();
 
 
-  const chapterId =
+  const chapter =
     $("#editorChapter")
-      ?.value || null;
+      .value;
 
 
-  const categoryId =
+  const category =
     $("#editorCategory")
-      ?.value || null;
+      .value ||
+      null;
 
 
   const question =
     $("#editorQuestion")
-      ?.value.trim();
+      .value
+      .trim();
 
 
   const answer =
     $("#editorAnswer")
-      ?.value.trim();
+      .value
+      .trim();
 
 
   const explanation =
     $("#editorExplanation")
-      ?.value.trim();
+      .value
+      .trim();
 
 
-  const imageUrl =
+  const image =
     $("#editorImage")
-      ?.value.trim();
+      .value
+      .trim();
 
 
-  const videoUrl =
+  const video =
     $("#editorVideo")
-      ?.value.trim();
+      .value
+      .trim();
 
 
-  const sortOrder =
+  const sort =
     Number(
-      $("#editorSort")?.value || 0
+      $("#editorSort")
+        .value ||
+      0
     );
 
 
-  if (!title) {
-
+  if (!title)
     throw new Error(
       "اكتب عنوان السؤال."
     );
 
-  }
 
-
-  if (!chapterId) {
-
+  if (!chapter)
     throw new Error(
       "اختر Chapter."
     );
 
-  }
 
-
-  if (!question) {
-
+  if (!question)
     throw new Error(
-      "اكتب نص السؤال."
+      "اكتب السؤال."
     );
-
-  }
 
 
   const payload = {
@@ -3190,27 +3350,31 @@ async function saveQuestion() {
     title,
 
     chapter_id:
-      chapterId,
+      chapter,
 
     category_id:
-      categoryId,
+      category,
 
     question,
 
     answer:
-      answer || null,
+      answer ||
+      null,
 
     explanation:
-      explanation || null,
+      explanation ||
+      null,
 
     image_url:
-      imageUrl || null,
+      image ||
+      null,
 
     video_url:
-      videoUrl || null,
+      video ||
+      null,
 
     sort_order:
-      sortOrder
+      sort
 
   };
 
@@ -3221,12 +3385,20 @@ async function saveQuestion() {
       error
     } =
       await supabase
-        .from(TABLES.questions)
-        .update(payload)
-        .eq("id", editingId);
+        .from(
+          TABLES.questions
+        )
+        .update(
+          payload
+        )
+        .eq(
+          "id",
+          editingId
+        );
 
 
-    if (error) throw error;
+    if (error)
+      throw error;
 
   } else {
 
@@ -3238,11 +3410,16 @@ async function saveQuestion() {
       error
     } =
       await supabase
-        .from(TABLES.questions)
-        .insert(payload);
+        .from(
+          TABLES.questions
+        )
+        .insert(
+          payload
+        );
 
 
-    if (error) throw error;
+    if (error)
+      throw error;
 
   }
 
@@ -3257,20 +3434,22 @@ async function deleteChapter(
   id
 ) {
 
-  if (!isAdmin()) return;
+  if (!isAdmin())
+    return;
 
 
   const hasQuestions =
     questions.some(
       (question) =>
-        question.chapter_id === id
+        question.chapter_id ===
+        id
     );
 
 
   if (hasQuestions) {
 
     showToast(
-      "لا يمكن حذف Chapter يحتوي على أسئلة. احذف الأسئلة أولًا.",
+      "احذف أسئلة الـChapter أولًا.",
       "error"
     );
 
@@ -3280,50 +3459,48 @@ async function deleteChapter(
 
 
   if (
-    !window.confirm(
-      "هل أنت متأكد من حذف هذا Chapter؟"
+    !confirm(
+      "هل تريد حذف هذا Chapter؟"
     )
-  ) {
+  )
+    return;
+
+
+  const {
+    error
+  } =
+    await supabase
+      .from(
+        TABLES.chapters
+      )
+      .delete()
+      .eq(
+        "id",
+        id
+      );
+
+
+  if (error) {
+
+    showToast(
+      getDbError(error),
+      "error"
+    );
 
     return;
 
   }
 
 
-  try {
+  await refreshPublicContent();
 
-    const {
-      error
-    } =
-      await supabase
-        .from(TABLES.chapters)
-        .delete()
-        .eq("id", id);
+  await renderAdminLists();
 
 
-    if (error) throw error;
-
-
-    await refreshPublicContent();
-
-    await renderAdminLists();
-
-
-    showToast(
-      "تم حذف الـChapter.",
-      "success"
-    );
-
-  } catch (error) {
-
-    console.error(error);
-
-    showToast(
-      getDatabaseError(error),
-      "error"
-    );
-
-  }
+  showToast(
+    "تم حذف Chapter.",
+    "success"
+  );
 
 }
 
@@ -3336,54 +3513,53 @@ async function deleteQuestion(
   id
 ) {
 
-  if (!isAdmin()) return;
+  if (!isAdmin())
+    return;
 
 
   if (
-    !window.confirm(
-      "هل أنت متأكد من حذف هذا السؤال؟"
+    !confirm(
+      "هل تريد حذف هذا السؤال؟"
     )
-  ) {
+  )
+    return;
+
+
+  const {
+    error
+  } =
+    await supabase
+      .from(
+        TABLES.questions
+      )
+      .delete()
+      .eq(
+        "id",
+        id
+      );
+
+
+  if (error) {
+
+    showToast(
+      getDbError(error),
+      "error"
+    );
 
     return;
 
   }
 
 
-  try {
+  await refreshPublicContent();
 
-    const {
-      error
-    } =
-      await supabase
-        .from(TABLES.questions)
-        .delete()
-        .eq("id", id);
+  await renderAdminLists();
 
 
-    if (error) throw error;
-
-
-    await refreshPublicContent();
-
-    await renderAdminLists();
-
-
-    showToast(
-      "تم حذف السؤال.",
-      "success"
-    );
-
-  } catch (error) {
-
-    console.error(error);
-
-    showToast(
-      getDatabaseError(error),
-      "error"
-    );
-
-  }
+  showToast(
+    "تم حذف السؤال.",
+    "success"
+  );
 
 }
 
@@ -3396,20 +3572,24 @@ async function deleteCategory(
   id
 ) {
 
-  if (!isAdmin()) return;
+  if (!isAdmin())
+    return;
 
 
   const used =
     questions.some(
       (question) =>
-        question.category_id === id
+        String(
+          question.category_id
+        ) ===
+        String(id)
     );
 
 
   if (used) {
 
     showToast(
-      "هذا التصنيف مستخدم في أسئلة. غيّر التصنيف أو احذف الأسئلة أولًا.",
+      "هذا التصنيف مستخدم في سؤال.",
       "error"
     );
 
@@ -3419,50 +3599,48 @@ async function deleteCategory(
 
 
   if (
-    !window.confirm(
-      "هل أنت متأكد من حذف هذا التصنيف؟"
+    !confirm(
+      "هل تريد حذف هذا التصنيف؟"
     )
-  ) {
+  )
+    return;
+
+
+  const {
+    error
+  } =
+    await supabase
+      .from(
+        TABLES.categories
+      )
+      .delete()
+      .eq(
+        "id",
+        id
+      );
+
+
+  if (error) {
+
+    showToast(
+      getDbError(error),
+      "error"
+    );
 
     return;
 
   }
 
 
-  try {
+  await refreshPublicContent();
 
-    const {
-      error
-    } =
-      await supabase
-        .from(TABLES.categories)
-        .delete()
-        .eq("id", id);
+  await renderAdminLists();
 
 
-    if (error) throw error;
-
-
-    await refreshPublicContent();
-
-    await renderAdminLists();
-
-
-    showToast(
-      "تم حذف التصنيف.",
-      "success"
-    );
-
-  } catch (error) {
-
-    console.error(error);
-
-    showToast(
-      getDatabaseError(error),
-      "error"
-    );
-
-  }
+  showToast(
+    "تم حذف التصنيف.",
+    "success"
+  );
 
 }
 
@@ -3471,68 +3649,88 @@ async function deleteCategory(
    CONTACT SETTINGS
    ========================================================= */
 
-function loadContactSettingsIntoForm() {
+async function saveContactSettings(
+  event
+) {
 
-  if (whatsappNumber) {
-
-    whatsappNumber.value =
-      getSetting(
-        "whatsapp_number",
-        "+201213707524"
-      );
-
-  }
+  event.preventDefault();
 
 
-  if (whatsappTemplate) {
+  if (!isAdmin())
+    return;
 
-    whatsappTemplate.value =
-      getSetting(
-        "whatsapp_template",
-        "مرحبًا، أحتاج إلى المساعدة في Question Archive."
-      );
+
+  const number =
+    whatsappNumber.value.trim();
+
+
+  const message =
+    whatsappTemplate.value.trim();
+
+
+  try {
+
+    await upsertSetting(
+      "whatsapp_number",
+      number
+    );
+
+
+    await upsertSetting(
+      "whatsapp_template",
+      message
+    );
+
+
+    await loadSettings();
+
+    updateContact();
+
+
+    showToast(
+      "تم حفظ الإعدادات.",
+      "success"
+    );
+
+  } catch (error) {
+
+    console.error(
+      error
+    );
+
+    showToast(
+      getDbError(error),
+      "error"
+    );
 
   }
 
 }
 
 
-async function saveSetting(
+async function upsertSetting(
   key,
   value
 ) {
-
-  const payload = {
-
-    key,
-
-    value,
-
-    updated_by:
-      currentUser.id,
-
-    updated_at:
-      new Date().toISOString()
-
-  };
-
 
   const {
     data: existing,
     error: findError
   } =
     await supabase
-      .from(TABLES.settings)
+      .from(
+        TABLES.settings
+      )
       .select("key")
-      .eq("key", key)
+      .eq(
+        "key",
+        key
+      )
       .maybeSingle();
 
 
-  if (findError) {
-
+  if (findError)
     throw findError;
-
-  }
 
 
   if (existing) {
@@ -3541,7 +3739,9 @@ async function saveSetting(
       error
     } =
       await supabase
-        .from(TABLES.settings)
+        .from(
+          TABLES.settings
+        )
         .update({
           value,
           updated_by:
@@ -3549,10 +3749,14 @@ async function saveSetting(
           updated_at:
             new Date().toISOString()
         })
-        .eq("key", key);
+        .eq(
+          "key",
+          key
+        );
 
 
-    if (error) throw error;
+    if (error)
+      throw error;
 
   } else {
 
@@ -3560,71 +3764,26 @@ async function saveSetting(
       error
     } =
       await supabase
-        .from(TABLES.settings)
-        .insert(payload);
+        .from(
+          TABLES.settings
+        )
+        .insert({
+
+          key,
+
+          value,
+
+          updated_by:
+            currentUser.id,
+
+          updated_at:
+            new Date().toISOString()
+
+        });
 
 
-    if (error) throw error;
-
-  }
-
-}
-
-
-async function saveContactSettings() {
-
-  if (!isAdmin()) {
-
-    showToast(
-      "Admin only.",
-      "error"
-    );
-
-    return;
-
-  }
-
-
-  const number =
-    whatsappNumber?.value.trim();
-
-
-  const template =
-    whatsappTemplate?.value.trim();
-
-
-  try {
-
-    await saveSetting(
-      "whatsapp_number",
-      number
-    );
-
-
-    await saveSetting(
-      "whatsapp_template",
-      template
-    );
-
-
-    await loadSettings();
-
-    updateContactUI();
-
-
-    showToast(
-      "تم حفظ إعدادات التواصل.",
-      "success"
-    );
-
-  } catch (error) {
-
-    console.error(error);
-
-    showToast(
-      getDatabaseError(error),
-      "error"
-    );
+    if (error)
+      throw error;
 
   }
 
@@ -3632,69 +3791,47 @@ async function saveContactSettings() {
 
 
 /* =========================================================
-   VIDEO EMBED
+   VIDEO
    ========================================================= */
 
-function buildVideoEmbed(
+function buildVideo(
   url
 ) {
 
-  if (!url) return "";
-
-
-  const youtubeId =
+  const id =
     getYouTubeId(url);
 
 
-  if (youtubeId) {
+  if (id) {
 
     return `
-      <div class="video-frame">
+
+      <div class="question-video">
 
         <iframe
           src="https://www.youtube.com/embed/${escapeAttribute(
-            youtubeId
+            id
           )}"
           title="Question video"
           loading="lazy"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowfullscreen>
         </iframe>
 
       </div>
-    `;
 
-  }
-
-
-  if (
-    url.includes(".mp4") ||
-    url.includes(".webm") ||
-    url.includes(".ogg")
-  ) {
-
-    return `
-      <video
-        controls
-        preload="metadata"
-        class="native-video">
-
-        <source
-          src="${escapeAttribute(url)}">
-
-        المتصفح لا يدعم تشغيل الفيديو.
-
-      </video>
     `;
 
   }
 
 
   return `
+
     <div class="video-link-box">
 
       <a
-        href="${escapeAttribute(url)}"
+        href="${escapeAttribute(
+          url
+        )}"
         target="_blank"
         rel="noopener noreferrer">
 
@@ -3703,6 +3840,7 @@ function buildVideoEmbed(
       </a>
 
     </div>
+
   `;
 
 }
@@ -3725,8 +3863,13 @@ function getYouTubeId(
     ) {
 
       return parsed.pathname
-        .replace("/", "")
-        .split("/")[0];
+        .replace(
+          "/",
+          ""
+        )
+        .split(
+          "/"
+        )[0];
 
     }
 
@@ -3756,8 +3899,12 @@ function getYouTubeId(
       ) {
 
         return parsed.pathname
-          .split("/embed/")[1]
-          ?.split("/")[0];
+          .split(
+            "/embed/"
+          )[1]
+          ?.split(
+            "/"
+          )[0];
 
       }
 
@@ -3769,14 +3916,18 @@ function getYouTubeId(
       ) {
 
         return parsed.pathname
-          .split("/shorts/")[1]
-          ?.split("/")[0];
+          .split(
+            "/shorts/"
+          )[1]
+          ?.split(
+            "/"
+          )[0];
 
       }
 
     }
 
-  } catch (error) {
+  } catch {
 
     return null;
 
@@ -3784,263 +3935,6 @@ function getYouTubeId(
 
 
   return null;
-
-}
-
-
-/* =========================================================
-   STATIC EVENTS
-   ========================================================= */
-
-function bindStaticEvents() {
-
-
-  /*
-   * Admin login
-   */
-
-  adminLoginButton?.addEventListener(
-    "click",
-    () => {
-
-      showAdminLogin();
-
-    }
-  );
-
-
-  /*
-   * Admin dashboard
-   */
-
-  adminNavButton?.addEventListener(
-    "click",
-    () => {
-
-      openAdminDashboard();
-
-    }
-  );
-
-
-  closeAdmin?.addEventListener(
-    "click",
-    () => {
-
-      closeAdminDashboard();
-
-    }
-  );
-
-
-  /*
-   * Mobile menu
-   */
-
-  mobileMenuButton?.addEventListener(
-    "click",
-    () => {
-
-      mainNav?.classList.toggle(
-        "mobile-open"
-      );
-
-    }
-  );
-
-
-  /*
-   * Close mobile menu after link
-   */
-
-  $$("#mainNav a").forEach(
-    (link) => {
-
-      link.addEventListener(
-        "click",
-        () => {
-
-          mainNav?.classList.remove(
-            "mobile-open"
-          );
-
-        }
-      );
-
-    }
-  );
-
-
-  /*
-   * Admin tabs
-   */
-
-  adminTabs.forEach(
-    (button) => {
-
-      button.addEventListener(
-        "click",
-        () => {
-
-          switchAdminTab(
-            button.dataset.adminTab
-          );
-
-        }
-      );
-
-    }
-  );
-
-
-  /*
-   * Add buttons
-   */
-
-  addChapterButton?.addEventListener(
-    "click",
-    () => {
-
-      openEditor(
-        "chapter"
-      );
-
-    }
-  );
-
-
-  addQuestionButton?.addEventListener(
-    "click",
-    () => {
-
-      openEditor(
-        "question"
-      );
-
-    }
-  );
-
-
-  addCategoryButton?.addEventListener(
-    "click",
-    () => {
-
-      openEditor(
-        "category"
-      );
-
-    }
-  );
-
-
-  /*
-   * Close editor
-   */
-
-  closeEditor?.addEventListener(
-    "click",
-    () => {
-
-      closeEditorModal();
-
-    }
-  );
-
-
-  /*
-   * Click outside editor
-   */
-
-  editorModal?.addEventListener(
-    "click",
-    (event) => {
-
-      if (
-        event.target ===
-        editorModal
-      ) {
-
-        closeEditorModal();
-
-      }
-
-    }
-  );
-
-
-  /*
-   * Search
-   */
-
-  searchInput?.addEventListener(
-    "input",
-    () => {
-
-      clearTimeout(
-        searchTimer
-      );
-
-
-      searchTimer =
-        setTimeout(
-          () => {
-
-            renderSearchResults();
-
-          },
-          180
-        );
-
-    }
-  );
-
-
-  categoryFilter?.addEventListener(
-    "change",
-    () => {
-
-      renderSearchResults();
-
-    }
-  );
-
-
-  /*
-   * Contact form
-   */
-
-  contactSettingsForm?.addEventListener(
-    "submit",
-    async (event) => {
-
-      event.preventDefault();
-
-      await saveContactSettings();
-
-    }
-  );
-
-
-  /*
-   * Escape key
-   */
-
-  document.addEventListener(
-    "keydown",
-    (event) => {
-
-      if (
-        event.key === "Escape"
-      ) {
-
-        closeEditorModal();
-
-        closeAdminDashboard();
-
-      }
-
-    }
-  );
 
 }
 
@@ -4062,151 +3956,131 @@ function closeEditorModal() {
   );
 
 
-  editorForm.onsubmit = null;
+  if (editorForm) {
 
-  editorType = null;
+    editorForm.innerHTML =
+      "";
 
-  editingId = null;
+    editorForm.onsubmit =
+      null;
+
+  }
+
+
+  editorType =
+    null;
+
+  editingId =
+    null;
 
 }
 
 
 /* =========================================================
-   DATABASE ERRORS
+   STATUS
    ========================================================= */
 
-function getDatabaseError(
+function setStatus(
+  element,
+  message,
+  type
+) {
+
+  if (!element)
+    return;
+
+
+  element.textContent =
+    message;
+
+
+  element.className =
+    `auth-status ${type || ""}`;
+
+}
+
+
+function getAuthError(
   error
 ) {
 
-  if (!error) {
+  const message =
+    String(
+      error?.message ||
+      ""
+    ).toLowerCase();
 
-    return "حدث خطأ غير معروف.";
+
+  if (
+    message.includes(
+      "invalid login credentials"
+    )
+  ) {
+
+    return "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
 
   }
 
 
   if (
-    error.code === "42501"
+    message.includes(
+      "email not confirmed"
+    )
   ) {
 
-    return "ليس لديك صلاحية لتنفيذ هذه العملية. تحقق من RLS في Supabase.";
-
-  }
-
-
-  if (
-    error.code === "23505"
-  ) {
-
-    return "هذا العنصر موجود بالفعل.";
-
-  }
-
-
-  if (
-    error.code === "23503"
-  ) {
-
-    return "لا يمكن تنفيذ العملية بسبب وجود عناصر مرتبطة بهذا العنصر.";
+    return "يجب تأكيد البريد الإلكتروني أولًا.";
 
   }
 
 
   return (
-    error.message ||
-    "حدث خطأ أثناء تنفيذ العملية."
+    error?.message ||
+    "تعذر تسجيل الدخول."
   );
 
 }
 
 
 /* =========================================================
-   TOAST
+   SETTINGS
    ========================================================= */
 
-function showToast(
-  message,
-  type = "info"
+function getSetting(
+  key,
+  fallback
 ) {
 
-  if (!toastRegion) return;
+  if (
+    siteSettings[key] ===
+    undefined ||
+    siteSettings[key] ===
+    null ||
+    siteSettings[key] ===
+    ""
+  ) {
+
+    return fallback;
+
+  }
 
 
-  const toast =
-    document.createElement("div");
-
-
-  toast.className =
-    `toast ${type}`;
-
-
-  toast.innerHTML = `
-    <span>
-      ${escapeHTML(message)}
-    </span>
-  `;
-
-
-  toastRegion.appendChild(
-    toast
-  );
-
-
-  requestAnimationFrame(
-    () => {
-
-      toast.classList.add(
-        "show"
-      );
-
-    }
-  );
-
-
-  setTimeout(
-    () => {
-
-      toast.classList.remove(
-        "show"
-      );
-
-
-      setTimeout(
-        () => {
-
-          toast.remove();
-
-        },
-        250
-      );
-
-    },
-    3200
-  );
+  return siteSettings[key];
 
 }
 
 
 /* =========================================================
-   TEXT HELPERS
+   TEXT
    ========================================================= */
 
 function escapeHTML(
   value
 ) {
 
-  if (
-    value === null ||
-    value === undefined
-  ) {
-
-    return "";
-
-  }
-
-
-  return String(value)
+  return String(
+    value ??
+    ""
+  )
     .replace(
       /&/g,
       "&amp;"
@@ -4235,7 +4109,9 @@ function escapeAttribute(
   value
 ) {
 
-  return escapeHTML(value);
+  return escapeHTML(
+    value
+  );
 
 }
 
@@ -4244,26 +4120,31 @@ function formatText(
   text
 ) {
 
-  return escapeHTML(text)
-    .replace(
-      /\n/g,
-      "<br>"
-    );
+  return escapeHTML(
+    text
+  ).replace(
+    /\n/g,
+    "<br>"
+  );
 
 }
 
 
 function truncate(
   text,
-  length = 180
+  length
 ) {
 
   const value =
-    String(text || "");
+    String(
+      text ||
+      ""
+    );
 
 
   if (
-    value.length <= length
+    value.length <=
+    length
   ) {
 
     return value;
@@ -4275,82 +4156,127 @@ function truncate(
     value.substring(
       0,
       length
-    ) + "..."
+    ) +
+    "..."
   );
 
 }
 
 
 /* =========================================================
-   REVEAL ANIMATION
+   TOAST
    ========================================================= */
 
-function setupRevealObserver() {
+function showToast(
+  message,
+  type = "info"
+) {
 
-  if (
-    !("IntersectionObserver" in window)
-  ) {
-
-    $$(".reveal").forEach(
-      (element) => {
-
-        element.classList.add(
-          "visible"
-        );
-
-      }
-    );
-
+  if (!toastRegion)
     return;
 
-  }
 
-
-  const observer =
-    new IntersectionObserver(
-      (entries) => {
-
-        entries.forEach(
-          (entry) => {
-
-            if (
-              entry.isIntersecting
-            ) {
-
-              entry.target.classList.add(
-                "visible"
-              );
-
-              observer.unobserve(
-                entry.target
-              );
-
-            }
-
-          }
-        );
-
-      },
-      {
-        threshold: 0.08
-      }
+  const toast =
+    document.createElement(
+      "div"
     );
 
 
-  $$(".reveal").forEach(
-    (element) => {
+  toast.className =
+    `toast ${type}`;
 
-      observer.observe(
-        element
+
+  toast.textContent =
+    message;
+
+
+  toastRegion.appendChild(
+    toast
+  );
+
+
+  setTimeout(
+    () => {
+
+      toast.classList.add(
+        "show"
       );
 
-    }
+    },
+    20
+  );
+
+
+  setTimeout(
+    () => {
+
+      toast.classList.remove(
+        "show"
+      );
+
+
+      setTimeout(
+        () => {
+
+          toast.remove();
+
+        },
+        300
+      );
+
+    },
+    3000
   );
 
 }
 
 
-setTimeout(
-  setupRevealObserver,
-  500
-);
+/* =========================================================
+   DATABASE ERROR
+   ========================================================= */
+
+function getDbError(
+  error
+) {
+
+  if (
+    error?.code ===
+    "42501"
+  ) {
+
+    return "لا توجد صلاحية لتنفيذ العملية. تحقق من RLS في Supabase.";
+
+  }
+
+
+  if (
+    error?.code ===
+    "23505"
+  ) {
+
+    return "العنصر موجود بالفعل.";
+
+  }
+
+
+  if (
+    error?.code ===
+    "23503"
+  ) {
+
+    return "لا يمكن تنفيذ العملية لأن هناك بيانات مرتبطة بهذا العنصر.";
+
+  }
+
+
+  return (
+    error?.message ||
+    "حدث خطأ في قاعدة البيانات."
+  );
+
+}
+
+
+/* =========================================================
+   END
+   ========================================================= */
