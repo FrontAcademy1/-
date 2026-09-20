@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="منصة تعليمية مستقلة لمساعدة الطلاب على مراجعة وحل الأسئلة التعليمية المرتبطة بمنصة كايرو الياباني والمحتوى الدراسي.">
+  <meta name="theme-color" content="#17120d">
+  <meta property="og:title" content="Question Archive — Cairo Japanese">
+  <meta property="og:description" content="منصة تعليمية مستقلة لمراجعة الأسئلة التعليمية.">
+  <meta property="og:type" content="website">
+  <title>Question Archive | Cairo Japanese</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=IM+Fell+English:ital@0;1&family=UnifrakturCook:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+  <div class="ambient ambient-a" aria-hidden="true"></div>
+  <div class="ambient ambient-b" aria-hidden="true"></div>
+
+  <div id="authScreen" class="screen auth-screen">
+    <div class="auth-frame">
+      <div class="seal" aria-hidden="true"><span>QA</span></div>
+      <p class="archive-kicker">THE QUESTION ARCHIVE</p>
+      <h1>CAIRO JAPANESE</h1>
+      <p class="auth-subtitle">EDUCATIONAL QUESTIONS</p>
+      <div class="ornament"><span></span></div>
+      <p class="auth-copy">منصة تعليمية مستقلة لمساعدة الطلاب على المراجعة وحل الأسئلة.</p>
+
+      <form id="loginForm" class="auth-form" novalidate>
+        <label for="email">EMAIL</label>
+        <input id="email" name="email" type="email" autocomplete="username" placeholder="student@example.com" required>
+
+        <label for="password">PASSWORD</label>
+        <div class="password-field">
+          <input id="password" name="password" type="password" autocomplete="current-password" placeholder="••••••••" required minlength="6">
+          <button id="togglePassword" type="button" aria-label="إظهار كلمة المرور">SHOW</button>
+        </div>
+
+        <button class="archive-button primary" type="submit">
+          <span>ENTER ARCHIVE</span>
+          <span class="button-mark">→</span>
+        </button>
+        <p id="authStatus" class="form-status" aria-live="polite"></p>
+      </form>
+      <p class="auth-note">الدخول يتم عبر Supabase Authentication. لا توجد كلمات مرور محفوظة داخل ملفات الموقع.</p>
+    </div>
+  </div>
+
+  <div id="appShell" class="app-shell hidden">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <button id="mobileMenuButton" class="icon-button mobile-only" type="button" aria-label="فتح القائمة">☰</button>
+        <a class="site-brand" href="#home">
+          <span class="brand-seal">QA</span>
+          <span>
+            <strong>QUESTION ARCHIVE</strong>
+            <small>CAIRO JAPANESE</small>
+          </span>
+        </a>
+
+        <nav id="mainNav" class="main-nav" aria-label="التنقل الرئيسي">
+          <a href="#home">ARCHIVE</a>
+          <a href="#chapters">CHAPTERS</a>
+          <a href="#search">SEARCH</a>
+          <a href="#contact">CONTACT</a>
+          <button id="adminNavButton" class="nav-admin hidden" type="button">ADMIN</button>
+        </nav>
+
+        <div class="user-tools">
+          <span id="userRoleBadge" class="role-badge">STUDENT</span>
+          <button id="logoutButton" class="text-button" type="button">LOG OUT</button>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section id="home" class="hero-section">
+        <div class="paper-scrap" aria-hidden="true"></div>
+        <div class="container hero-inner">
+          <div class="hero-copy reveal">
+            <p class="archive-kicker">VOLUME I • EDUCATIONAL ARCHIVE</p>
+            <h2>WELCOME TO<br><span>THE ARCHIVE</span></h2>
+            <p class="hero-lead">CAIRO JAPANESE<br>EDUCATIONAL QUESTIONS</p>
+            <p class="hero-description">راجع الأسئلة، اقرأ الشروحات، واحفظ أهم النقاط في تجربة تعليمية هادئة مستوحاة من أرشيفات الورق القديمة.</p>
+            <div class="hero-actions">
+              <a class="archive-button primary" href="#chapters">OPEN CHAPTERS <span class="button-mark">→</span></a>
+              <a class="archive-button secondary" href="#search">SEARCH ARCHIVE</a>
+            </div>
+          </div>
+
+          <div class="archive-cover reveal delay-1">
+            <div class="cover-stamp">EDU<br>ARCHIVE</div>
+            <span class="cover-small">CAIRO JAPANESE</span>
+            <h3>THE<br>QUESTION<br>ARCHIVE</h3>
+            <div class="cover-rule"></div>
+            <p>AN INDEPENDENT<br>STUDY RESOURCE</p>
+            <span class="cover-number">NO. 001</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="chapters" class="section">
+        <div class="container">
+          <div class="section-heading reveal">
+            <span class="section-label">01 / CHAPTERS</span>
+            <h2>فصول الأرشيف</h2>
+            <p>اختر الفصل للوصول إلى الأسئلة المرتبطة به.</p>
+          </div>
+          <div id="chaptersGrid" class="chapters-grid"></div>
+          <div id="chaptersEmpty" class="empty-state hidden">
+            <div class="empty-mark">—</div>
+            <h3>لا توجد Chapters حتى الآن</h3>
+            <p>سيظهر المحتوى هنا عندما تضيف الإدارة أول Chapter من لوحة التحكم.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="questionsSection" class="section questions-section hidden">
+        <div class="container">
+          <div class="section-heading compact">
+            <span class="section-label">ARCHIVE / QUESTIONS</span>
+            <h2 id="selectedChapterTitle">Chapter</h2>
+            <p id="selectedChapterDescription"></p>
+          </div>
+          <div id="questionsList" class="questions-list"></div>
+          <div id="questionsEmpty" class="empty-state hidden">
+            <div class="empty-mark">—</div>
+            <h3>لا توجد أسئلة في هذا الفصل</h3>
+            <p>ستظهر الأسئلة هنا بعد أن تضيفها الإدارة من لوحة التحكم.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="search" class="section search-section">
+        <div class="container">
+          <div class="section-heading compact reveal">
+            <span class="section-label">02 / SEARCH</span>
+            <h2>ابحث داخل الأرشيف</h2>
+            <p>ابحث باسم الفصل، عنوان السؤال، نص السؤال، أو التصنيف.</p>
+          </div>
+
+          <div class="search-panel reveal">
+            <div class="search-main">
+              <label for="searchInput">SEARCH QUESTIONS</label>
+              <div class="search-input-wrap">
+                <span aria-hidden="true">⌕</span>
+                <input id="searchInput" type="search" placeholder="اكتب كلمة للبحث..." autocomplete="off">
+              </div>
+            </div>
+            <div class="filter-field">
+              <label for="categoryFilter">CATEGORY</label>
+              <select id="categoryFilter">
+                <option value="">كل التصنيفات</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="searchResults" class="search-results"></div>
+          <div id="searchEmpty" class="empty-state hidden">
+            <div class="empty-mark">?</div>
+            <h3>لا توجد نتائج</h3>
+            <p>جرّب كلمة أخرى أو اختر تصنيفًا مختلفًا.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="contact" class="section contact-section">
+        <div class="container narrow">
+          <div class="contact-card reveal">
+            <span class="section-label">03 / CONTACT</span>
+            <h2>هل واجهت مشكلة؟</h2>
+            <p>تواصل مع الإدارة عبر WhatsApp إذا واجهتك مشكلة في سؤال أو احتجت إلى مساعدة.</p>
+            <button id="generalWhatsApp" class="archive-button primary" type="button">CONTACT VIA WHATSAPP <span class="button-mark">→</span></button>
+            <small id="contactNumberLabel"></small>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <div>
+          <strong>QUESTION ARCHIVE</strong>
+          <p>منصة تعليمية مستقلة لمساعدة الطلاب على المراجعة.</p>
+        </div>
+        <span id="footerYear"></span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Admin dashboard -->
+  <div id="adminOverlay" class="admin-overlay hidden" aria-hidden="true">
+    <div class="admin-shell">
+      <header class="admin-header">
+        <div>
+          <span class="section-label">CONTROL ROOM</span>
+          <h2>ADMIN DASHBOARD</h2>
+        </div>
+        <button id="closeAdmin" class="close-button" type="button" aria-label="إغلاق لوحة الإدارة">×</button>
+      </header>
+
+      <div class="admin-tabs">
+        <button class="admin-tab active" data-admin-tab="overview" type="button">OVERVIEW</button>
+        <button class="admin-tab" data-admin-tab="chapters" type="button">CHAPTERS</button>
+        <button class="admin-tab" data-admin-tab="questions" type="button">QUESTIONS</button>
+        <button class="admin-tab" data-admin-tab="categories" type="button">CATEGORIES</button>
+        <button class="admin-tab" data-admin-tab="contact" type="button">CONTACT SETTINGS</button>
+      </div>
+
+      <div class="admin-content">
+        <section class="admin-panel active" data-admin-panel="overview">
+          <div class="stats-grid">
+            <div class="stat-card"><span>CHAPTERS</span><strong id="statChapters">0</strong></div>
+            <div class="stat-card"><span>QUESTIONS</span><strong id="statQuestions">0</strong></div>
+            <div class="stat-card"><span>CATEGORIES</span><strong id="statCategories">0</strong></div>
+          </div>
+          <div class="admin-note">
+            <span class="note-mark">ARCHIVE NOTE</span>
+            <p>هذه اللوحة هي المكان الوحيد لإضافة وتعديل المحتوى. لا توجد أسئلة ثابتة داخل JavaScript.</p>
+          </div>
+        </section>
+
+        <section class="admin-panel" data-admin-panel="chapters">
+          <div class="panel-title-row">
+            <div>
+              <span class="section-label">CONTENT STRUCTURE</span>
+              <h3>MANAGE CHAPTERS</h3>
+            </div>
+            <button id="addChapterButton" class="archive-button primary small" type="button">+ ADD CHAPTER</button>
+          </div>
+          <div id="adminChaptersList" class="admin-list"></div>
+        </section>
+
+        <section class="admin-panel" data-admin-panel="questions">
+          <div class="panel-title-row">
+            <div>
+              <span class="section-label">QUESTION ARCHIVE</span>
+              <h3>MANAGE QUESTIONS</h3>
+            </div>
+            <button id="addQuestionButton" class="archive-button primary small" type="button">+ ADD QUESTION</button>
+          </div>
+          <div id="adminQuestionsList" class="admin-list"></div>
+        </section>
+
+        <section class="admin-panel" data-admin-panel="categories">
+          <div class="panel-title-row">
+            <div>
+              <span class="section-label">CLASSIFICATION</span>
+              <h3>MANAGE CATEGORIES</h3>
+            </div>
+            <button id="addCategoryButton" class="archive-button primary small" type="button">+ ADD CATEGORY</button>
+          </div>
+          <div id="adminCategoriesList" class="admin-list"></div>
+        </section>
+
+        <section class="admin-panel" data-admin-panel="contact">
+          <div class="panel-title-row">
+            <div>
+              <span class="section-label">SITE SETTINGS</span>
+              <h3>CONTACT SETTINGS</h3>
+            </div>
+          </div>
+          <form id="contactSettingsForm" class="admin-form">
+            <label for="whatsappNumber">WHATSAPP NUMBER</label>
+            <input id="whatsappNumber" type="text" placeholder="+201234567890">
+            <label for="whatsappTemplate">DEFAULT MESSAGE</label>
+            <textarea id="whatsappTemplate" rows="5" placeholder="مرحبًا، أحتاج إلى المساعدة."></textarea>
+            <button class="archive-button primary" type="submit">SAVE CONTACT SETTINGS</button>
+          </form>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin editor modal -->
+  <div id="editorModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <span id="editorKicker" class="section-label">EDITOR</span>
+          <h3 id="editorTitle">ADD ITEM</h3>
+        </div>
+        <button id="closeEditor" class="close-button" type="button" aria-label="إغلاق">×</button>
+      </div>
+      <form id="editorForm" class="admin-form"></form>
+    </div>
+  </div>
+
+  <div id="toastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+</body>
+</html>
