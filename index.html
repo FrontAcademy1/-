@@ -20,6 +20,124 @@
   >
 
   <link rel="stylesheet" href="style.css">
+
+  <script>
+function showAdminLogin() {
+  const authScreen = document.getElementById("authScreen");
+  const appShell = document.getElementById("appShell");
+
+  if (!authScreen) {
+    alert("خطأ: authScreen غير موجود في index.html");
+    return;
+  }
+
+  authScreen.classList.remove("hidden");
+  authScreen.style.display = "flex";
+  authScreen.setAttribute("aria-hidden", "false");
+
+  if (appShell) {
+    appShell.style.display = "none";
+  }
+
+  authScreen.innerHTML = `
+    <div class="auth-frame">
+      <div class="auth-content">
+        <div class="auth-kicker">ADMIN AREA</div>
+
+        <h1>ADMIN LOGIN</h1>
+        <p>Sign in to manage the question archive.</p>
+
+        <form id="adminLoginForm" class="auth-form">
+          <label>
+            Email
+            <input
+              id="adminEmail"
+              type="email"
+              placeholder="admin@example.com"
+              required
+            >
+          </label>
+
+          <label>
+            Password
+            <input
+              id="adminPassword"
+              type="password"
+              placeholder="Password"
+              required
+            >
+          </label>
+
+          <button type="submit">
+            LOGIN
+          </button>
+
+          <button type="button" id="cancelAdminLogin">
+            CANCEL
+          </button>
+
+          <div id="authStatus"></div>
+        </form>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("cancelAdminLogin").onclick = function () {
+    authScreen.classList.add("hidden");
+    authScreen.style.display = "none";
+    authScreen.setAttribute("aria-hidden", "true");
+
+    if (appShell) {
+      appShell.style.display = "";
+    }
+  };
+
+  document.getElementById("adminLoginForm").onsubmit = async function(e) {
+    e.preventDefault();
+
+    const email = document.getElementById("adminEmail").value.trim();
+    const password = document.getElementById("adminPassword").value;
+    const status = document.getElementById("authStatus");
+
+    status.textContent = "Logging in...";
+
+    if (typeof supabase === "undefined") {
+      status.textContent = "Supabase لم يتم تحميله.";
+      return;
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) {
+      status.textContent = error.message;
+      return;
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", data.user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      status.textContent = profileError.message;
+      return;
+    }
+
+    if (!profile || profile.role !== "admin") {
+      await supabase.auth.signOut();
+      status.textContent = "هذا الحساب ليس Admin.";
+      return;
+    }
+
+    location.reload();
+  };
+}
+  </script>
+  
 </head>
 
 <body>
@@ -99,11 +217,13 @@
 
 
           <button
-            id="adminNavButton"
-            class="nav-admin hidden"
-            type="button">
-            ADMIN
-          </button>
+  id="adminLoginButton"
+  type="button"
+  onclick="showAdminLogin()"
+  style="cursor:pointer;"
+>
+  ADMIN LOGIN
+</button>
 
         </nav>
 
